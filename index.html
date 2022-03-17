@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Putin Caput</title>
+  <style>
+    body {
+        padding: 0;
+        margin: 0;
+    }
+    #main {
+        width: 100vw;
+        height: 100vh;
+    }
+  </style>
+  <link rel="preload" as="image" href="assets/images/sprites2.png">
+</head>
+<body>
+
+<canvas id="main"></canvas>
+
+<audio id="audio_idle"><source src="assets/sounds/idle.mp3"></audio>
+<audio id="audio_move"><source src="assets/sounds/move.mp3"></audio>
+<audio id="audio_shoot"><source src="assets/sounds/shoot.mp3"></audio>
+<audio id="audio_explosion"><source src="assets/sounds/explosion.mp3"></audio>
+<audio id="audio_hit"><source src="assets/sounds/be_hit.mp3"></audio>
+<audio id="audio_start"><source src="assets/sounds/start.mp3"></audio>
+
+<script src="assets/js/DependencyInjection.js"></script>
+<script type="module">
+  import GameMap from './assets/js/gameObjects/GameMap.js';
+  import GameSidebar from './assets/js/gameObjects/GameSidebar.js';
+  import ConstructorSidebar from './assets/js/gameObjects/ConstructorSidebar.js';
+  import DrawingContext from './assets/js/DrawingContext.js';
+  import ResourceManager from './assets/js/ResourceManager.js';
+  import InputManager from './assets/js/InputManager.js';
+  import SceneManager from './assets/js/SceneManager.js';
+  import MenuScene from './assets/js/scenes/MenuScene.js';
+  import Sounds from './assets/js/Sounds.js';
+
+  async function bootstrap() {
+    const di = DependencyInjection.createRoot({
+      DrawingContext,
+      ResourceManager,
+      InputManager,
+      GameMap,
+      GameSidebar,
+      ConstructorSidebar,
+      Sounds
+    });
+    di.set('canvas', document.getElementById('main'));
+
+    const sceneManager = di.get(SceneManager);
+    const menuScene = di.get(MenuScene);
+
+    sceneManager.loadScene(menuScene);
+    // sceneManager.loadScene(gameScene);
+
+    console.info('test', sceneManager)
+    window.map = di.get('GameMap');
+
+    sceneManager.start();
+  }
+  bootstrap();
+
+</script>
+</body>
+</html>
