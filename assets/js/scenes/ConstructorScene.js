@@ -30,7 +30,7 @@ class ConstructorScene extends Scene {
     await this.resourceManager.loadResources([
       FILENAME_SPRITES
     ]);
-    this.map.map = Array(MAP_SIZE ** 2).fill(MAP_OBJECT_EMPTY);
+    this.map.setMap(Array(MAP_SIZE ** 2).fill(MAP_OBJECT_EMPTY));
     this.map.putBase();
     this.map.isConstructor = true;
     //

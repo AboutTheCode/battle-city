@@ -12,18 +12,23 @@ import {
   EXPLOSION_TIME,
   EXPLOSION_SPRITE,
   CELL_SIZE,
-  SHOOT_COOLDOWN_DEFAULT, TANK_PLAYER, TANK_SWIFT
+  SHOOT_COOLDOWN_DEFAULT,
+  TANK_PLAYER,
+  TANK_SWIFT,
+  COLLISION_GROUPS_ENEMY_TANK,
+  COLLISION_GROUP_TANK,
+  COLLISION_GROUPS_PLAYER_TANK,
+  COLLISION_GROUP_PLAYER_TANK,
+  COLLISION_GROUP_ENEMY_TANK
 } from '../constants.js';
 import Bullet from './Bullet.js';
 import BaseObject from './BaseObject.js';
 
 export default
 class Tank extends BaseObject {
-  x = 0;
-
-  y = 0;
-
   tickSlide = 0;
+
+  player = null; // AI
 
   constructor({
     x,
@@ -32,18 +37,21 @@ class Tank extends BaseObject {
     direction,
     ResourceManager,
     Sounds,
-    map
+    map,
+    GameState
   }) {
-    super();
+    super({ x, y, width: CELL_SIZE * 2, height: CELL_SIZE * 2, groups: [
+      COLLISION_GROUP_TANK,
+      type === TANK_PLAYER ? COLLISION_GROUP_PLAYER_TANK : COLLISION_GROUP_ENEMY_TANK
+    ] });
 
-    this.x = x;
-    this.y = y;
     this.type = type;
     this.direction = direction;
     this.moving = false;
     this.resourceManager = ResourceManager;
     this.sounds = Sounds;
     this.map = map;
+    this.gameState = GameState;
 
     this.speed = 4;
     if (type === TANK_SWIFT) {
@@ -68,6 +76,11 @@ class Tank extends BaseObject {
       return;
     }
 
+    if (this.isExplosion) {
+      this.drawTankSprite(context, EXPLOSION_SPRITE[Math.round(this.tickSlide / 10) % 3]);
+      return;
+    }
+
     this.drawTankSprite(context, this.bounds);
     // debug frame
     // const [debugX, debugY, tankWidth, tankHeight] = this.mapBounds;
@@ -78,11 +91,6 @@ class Tank extends BaseObject {
     //   { x1: debugX + tankWidth, y1: debugY, x2: debugX + tankWidth, y2: debugY + tankHeight },
     //   { x1: debugX, y1: debugY, x2: debugX + tankWidth, y2: debugY }
     // ], 'green');
-
-    if (this.isExplosion) {
-      this.drawTankSprite(context, EXPLOSION_SPRITE[Math.round(this.tickSlide / 10) % 5]);
-      return;
-    }
 
     if (this.isImmortal) {
       this.drawTankSprite(context, IMMORTAL_SPRITE[tick % 2]);
@@ -102,7 +110,7 @@ class Tank extends BaseObject {
     context.drawSprite(
       this.resourceManager.get(FILENAME_SPRITES),
       spriteX, spriteY, spriteWidth, spriteHeight,
-      this.x - (spriteWidth / 2), this.y - (spriteHeight / 2), // centered
+      this.x + (this.width - spriteWidth) / 2, this.y + (this.height - spriteHeight) / 2, // centered
       spriteWidth, spriteHeight
     );
   }
@@ -118,6 +126,9 @@ class Tank extends BaseObject {
     if (this.tickSlide === 100) {
       this.tickSlide = 0;
     }
+    if (this.player) {
+      this.player.tick();
+    }
   }
 
   move(direction) {
@@ -127,46 +138,35 @@ class Tank extends BaseObject {
     this.direction = direction;
     this.moving = true;
 
-    let newX = this.x;
-    let newY = this.y;
+    let oldX = this.x;
+    let oldY = this.y;
     switch (this.direction) {
       case DIRECTION_UP:
-        newX = Math.round(newX / CELL_SIZE) * CELL_SIZE;
-        newY -= this.speed;
+        this.x = Math.round(this.x / CELL_SIZE) * CELL_SIZE;
+        this.y -= this.speed;
         break;
       case DIRECTION_DOWN:
-        newX = Math.round(newX / CELL_SIZE) * CELL_SIZE;
-        newY += this.speed;
+        this.x = Math.round(this.x / CELL_SIZE) * CELL_SIZE;
+        this.y += this.speed;
         break;
       case DIRECTION_LEFT:
-        newX -= this.speed;
-        newY = Math.round(newY / CELL_SIZE) * CELL_SIZE;
+        this.x -= this.speed;
+        this.y = Math.round(this.y / CELL_SIZE) * CELL_SIZE;
         break;
       case DIRECTION_RIGHT:
-        newX += this.speed;
-        newY = Math.round(newY / CELL_SIZE) * CELL_SIZE;
+        this.x += this.speed;
+        this.y = Math.round(this.y / CELL_SIZE) * CELL_SIZE;
         break;
       default:
         break;
     }
-    const [,,tankWidth, tankHeight] = this.mapBounds;
-    if (
-      !this.map.checkCollision(this, newX - tankWidth / 2, newY - tankHeight / 2) &&
-      !this.map.checkCollision(this, newX - tankWidth / 2, newY + tankHeight / 2) &&
-      !this.map.checkCollision(this, newX + tankWidth / 2, newY - tankHeight / 2) &&
-      !this.map.checkCollision(this, newX + tankWidth / 2, newY + tankHeight / 2)
-    ) {
-      this.x = newX;
-      this.y = newY;
+
+    const objs = this.map.world.getCollisions(this.physicEntity, this.isPlayer ? COLLISION_GROUPS_PLAYER_TANK : COLLISION_GROUPS_ENEMY_TANK);
+    const outOfWorld = this.map.world.isOutOfWorld(this.physicEntity);
+    if (objs.length || outOfWorld) {
+      this.x = oldX;
+      this.y = oldY;
     }
-  }
-
-  get mapBounds() {
-    const [,,tankWidth, tankHeight] = this.bounds;
-    const x = this.x - ((tankWidth / 2));
-    const y = this.y - ((tankHeight / 2));
-
-    return [x, y, tankWidth, tankHeight];
   }
 
   get bounds() {
@@ -186,7 +186,7 @@ class Tank extends BaseObject {
       return;
     }
 
-    const [tankX, tankY, tankWidth, tankHeight] = this.mapBounds;
+    const { x: tankX, y: tankY, width: tankWidth, height: tankHeight } = this.physicEntity;
     let x = tankX + CELL_SIZE;
     let y = tankY + CELL_SIZE;
     if (this.direction === DIRECTION_DOWN) {
@@ -204,8 +204,8 @@ class Tank extends BaseObject {
     this.bullets = this.bullets.filter((bullet) => bullet.isActive);
     if (!this.bullets.length) {
       const bullet = new Bullet({
-        x: Math.round(x / CELL_SIZE) * CELL_SIZE,
-        y: Math.round(y / CELL_SIZE) * CELL_SIZE,
+        x: this.x,
+        y: this.y,
         direction: this.direction,
         ResourceManager: this.resourceManager,
         Sounds: this.sounds,
@@ -215,6 +215,7 @@ class Tank extends BaseObject {
       });
       this.bullets.push(bullet);
       this.map.gameObjects.push(bullet);
+      this.map.world.addObject(bullet.physicEntity);
       if (this.isPlayer) {
         this.sounds.play('shoot');
       }
@@ -224,11 +225,31 @@ class Tank extends BaseObject {
 
   born(isImmortal = true) {
     this.isBorn = true;
+    this.isExplosion = false;
     setTimeout(() => this.isBorn = false, BORN_TIME);
 
     if (isImmortal) {
       this.isImmortal = isImmortal;
       setTimeout(() => this.isImmortal = false, IMMORTAL_TIME);
+    }
+  }
+
+  async hit() {
+    if (this.isBorn || this.isImmortal) {
+      return;
+    }
+    await this.explode();
+    if (this.isPlayer) {
+      this.gameState.lives -= 1;
+      if (!this.gameState.lives) {
+        // game over
+      } else {
+        this.map.putPlayer1(this);
+        this.born();
+      }
+    } else {
+      this.gameState.kills[this.type] += 1;
+      this.gameState.killsScore += this.type * 100;
     }
   }
 
@@ -240,7 +261,8 @@ class Tank extends BaseObject {
       this.isExplosion = true;
       setTimeout(() => {
         this.isExplosion = false;
-        this.isBorn = true;
+        this.isBorn = false;
+        this.map.removeObject(this);
         resolve();
       }, EXPLOSION_TIME);
     });

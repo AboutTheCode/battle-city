@@ -40,6 +40,7 @@
   import SceneManager from './assets/js/SceneManager.js';
   import MenuScene from './assets/js/scenes/MenuScene.js';
   import Sounds from './assets/js/Sounds.js';
+  import GameState from './assets/js/GameState.js';
 
   async function bootstrap() {
     const di = DependencyInjection.createRoot({
@@ -49,7 +50,8 @@
       GameMap,
       GameSidebar,
       ConstructorSidebar,
-      Sounds
+      Sounds,
+      GameState
     });
     di.set('canvas', document.getElementById('main'));
 

@@ -4,9 +4,16 @@ import {
   MAP_OBJECT_BRICK,
   CELL_SIZE,
   MAP_OBJECT_SPRITES,
-  FILENAME_SPRITES, MAP_OBJECT_BASE, MAP_OBJECT_STEEL, MAP_OBJECT_JUNGLE, MAP_OBJECT_ICE
+  FILENAME_SPRITES,
+  MAP_OBJECT_BASE,
+  MAP_OBJECT_STEEL,
+  MAP_OBJECT_JUNGLE,
+  COLLISION_GROUP_ENV,
+  MAP_OBJECT_WATER
 } from '../constants.js';
 import DrawingContext from '../DrawingContext.js';
+import PhysicsWorld from '../physics/PhysicsWorld.js';
+import PhysicsEntity from '../physics/PhysicsEntity.js';
 
 const MAP_BG_COLOR = '#000';
 
@@ -28,6 +35,27 @@ class GameMap {
     this.highlightTool = null;
     this.isConstructor = false;
     this.isDebug = false;
+    this.world = new PhysicsWorld({ width: size, height: size });
+  }
+
+  setMap(map) {
+    this.world.clear();
+    this.map = map;
+
+    for (let x = 0; x < MAP_SIZE; x++) {
+      for (let y = 0; y < MAP_SIZE; y++) {
+        const block = this.get(x, y);
+        if (block !== MAP_OBJECT_STEEL && block !== MAP_OBJECT_BRICK && block !== MAP_OBJECT_WATER) {
+          continue;
+        }
+        this.world.addObject(
+          new PhysicsEntity({
+            x: x * CELL_SIZE + 1, y: y * CELL_SIZE + 1, width: CELL_SIZE - 2, height: CELL_SIZE - 2,
+            ref: { row: y, cell: x, block }, groups: [COLLISION_GROUP_ENV, `${COLLISION_GROUP_ENV}${block}`]
+          })
+        );
+      }
+    }
   }
 
   get(x, y) {
@@ -39,6 +67,18 @@ class GameMap {
       return;
     }
     this.map[MAP_SIZE * y + x] = obj;
+  }
+
+  clear(x, y, obj) {
+    if (this.map[MAP_SIZE * y + x] === MAP_OBJECT_EMPTY) {
+      return;
+    }
+    this.map[MAP_SIZE * y + x] = MAP_OBJECT_EMPTY;
+    for (const obj of this.world.objects) {
+      if (obj.ref && obj.ref.row === y && obj.ref.cell === x) {
+        this.world.removeObject(obj);
+      }
+    }
   }
 
   putBase() {
@@ -87,34 +127,39 @@ class GameMap {
 
   putPlayer1(tank) {
     tank.x = this.getX(MAP_SIZE / 2 - 4);
-    tank.y = this.getY(MAP_SIZE - 1);
+    tank.y = this.getY(MAP_SIZE - 2);
 
     this.set(MAP_SIZE / 2 - 4, MAP_SIZE - 1, MAP_OBJECT_EMPTY);
     this.set(MAP_SIZE / 2 - 4, MAP_SIZE - 2, MAP_OBJECT_EMPTY);
     this.set(MAP_SIZE / 2 - 4 - 1, MAP_SIZE - 1, MAP_OBJECT_EMPTY);
     this.set(MAP_SIZE / 2 - 4 - 1, MAP_SIZE - 2, MAP_OBJECT_EMPTY);
 
-    this.gameObjects.push(tank);
+    this.addObject(tank);
+    this.world.addObject(tank.physicEntity);
   }
 
   redrawMap() {
     // console.info('redrawMap');
     this.context.clear(MAP_BG_COLOR);
-    for (let x = 0; x < MAP_SIZE; x++) {
-      for (let y = 0; y < MAP_SIZE; y++) {
-        const block = this.get(x, y);
-        if (block === MAP_OBJECT_BASE) {
-          continue;
+    if (this.isDebug) {
+      this.drawLines();
+      this.world.drawDebug(this.context);
+    } else {
+      for (let x = 0; x < MAP_SIZE; x++) {
+        for (let y = 0; y < MAP_SIZE; y++) {
+          const block = this.get(x, y);
+          if (block === MAP_OBJECT_BASE) {
+            continue;
+          }
+          const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[block];
+          this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), spriteX + 1, spriteY, spriteWidth, spriteHeight, x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         }
-        const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[block];
-        this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), spriteX + 1, spriteY, spriteWidth, spriteHeight, x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       }
+
+      // draw base
+      const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[MAP_OBJECT_BASE];
+      this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), spriteX, spriteY, spriteWidth, spriteHeight, MAP_SIZE * CELL_SIZE / 2 - CELL_SIZE, (MAP_SIZE - 2) * CELL_SIZE, CELL_SIZE * 2, CELL_SIZE * 2);
     }
-
-    // draw base
-    const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[MAP_OBJECT_BASE];
-    this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), spriteX, spriteY, spriteWidth, spriteHeight, MAP_SIZE * CELL_SIZE / 2 - CELL_SIZE, (MAP_SIZE - 2) * CELL_SIZE, CELL_SIZE * 2, CELL_SIZE * 2);
-
     this.currentMapImage = this.canvas.transferToImageBitmap();
   }
 
@@ -137,7 +182,7 @@ class GameMap {
     this.canvas.width = size;
     this.canvas.height = size;
 
-    if (!this.currentMapImage) {
+    if (!this.currentMapImage || this.isDebug) {
       this.redrawMap();
     }
     this.context.drawImage(this.currentMapImage, 0, 0, size, size);
@@ -156,7 +201,11 @@ class GameMap {
         if (block !== null && this.highlightTool !== null && block !== MAP_OBJECT_BASE) {
           this.context.ctx.globalAlpha = .5;
           const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[this.highlightTool];
-          this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), spriteX, spriteY, cellSize, cellSize, hX, hY, cellSize, cellSize);
+          if (this.highlightTool === MAP_OBJECT_EMPTY) {
+            this.context.drawRect(hX, hY, cellSize, cellSize, '#666');
+          } else {
+            this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), spriteX, spriteY, cellSize, cellSize, hX, hY, cellSize, cellSize);
+          }
           this.context.ctx.globalAlpha = 1;
         }
       }
@@ -165,25 +214,12 @@ class GameMap {
     } else {
       for (const object of this.gameObjects) {
         object.draw(this.context);
-
-        if (object.constructor.name === 'Bullet') {
-          if (object.tank.isPlayer) {
-            const res = this.getByRowCell(object.x, object.y);
-            if (res) {
-              this.drawDebugCell(res.row, res.cell);
-            }
-            const res2 = this.getByRowCell(object.x - 1, object.y - 1);
-            if (res2) {
-              this.drawDebugCell(res2.row, res2.cell);
-            }
-          }
-        }
-      }
-      if (this.isDebug) {
-        this.drawLines();
       }
     }
-    this.drawJungle();
+
+    if (!this.isDebug) {
+      this.drawJungle();
+    }
     return this.canvas.transferToImageBitmap();
   }
 
@@ -232,27 +268,6 @@ class GameMap {
     this.highlightTool = tool;
   }
 
-  checkCollision(object, x, y, ignoreBlocks = [MAP_OBJECT_JUNGLE, MAP_OBJECT_ICE]) {
-    if (x < 0 || y < 0 || x > MAP_SIZE * CELL_SIZE || y > MAP_SIZE * CELL_SIZE) {
-      return 'out-of-bounds'; // out of bounds
-    }
-    // for (const obj of this.gameObjects) {
-    //   if (obj.constructor.name === 'Tank' && obj === object) {
-    //     continue;
-    //   }
-    //   const [objX, objY, objWidth, objHeight] = obj.mapBounds;
-    //   if (x > objX || y > objY || x < objX + objWidth || y < objY + objHeight) {
-    //     console.info(objX, objY, objWidth, objHeight);
-    //     return 'tank';
-    //   }
-    // }
-    const block = this.getByCoordinate(x, y);
-    if (block === MAP_OBJECT_EMPTY || ignoreBlocks.includes(block)) {
-      return false;
-    }
-    return true;
-  }
-
   save() {
     return JSON.stringify(this.map);
   }
@@ -262,6 +277,7 @@ class GameMap {
   }
 
   removeObject(item) {
+    this.world.removeObject(item.physicEntity);
     this.gameObjects = this.gameObjects.filter((obj) => obj !== item);
   }
 }

@@ -2,6 +2,9 @@ import BaseObject from './BaseObject.js';
 import {
   BULLET_SPRITE,
   CELL_SIZE,
+  COLLISION_GROUP_BULLET,
+  COLLISION_GROUPS_ENEMY_BULLET,
+  COLLISION_GROUPS_PLAYER_BULLET,
   DIRECTION_DOWN,
   DIRECTION_LEFT,
   DIRECTION_RIGHT,
@@ -9,23 +12,13 @@ import {
   EXPLOSION_SPRITE,
   EXPLOSION_TIME,
   FILENAME_SPRITES,
-  MAP_OBJECT_BRICK,
-  MAP_OBJECT_EMPTY,
-  MAP_OBJECT_ICE,
-  MAP_OBJECT_JUNGLE,
-  MAP_OBJECT_STEEL,
-  MAP_OBJECT_WATER,
-  MAP_SIZE
+  MAP_OBJECT_BRICK
 } from '../constants.js';
 
 const SPEED_DIV = 4;
 
 export default
 class Bullet extends BaseObject {
-  x = 0;
-
-  y = 0;
-
   tickSlide = 0;
 
   constructor({
@@ -38,10 +31,13 @@ class Bullet extends BaseObject {
                 map,
                 damage
               }) {
-    super();
+    super({
+      x,
+      y,
+      width: (direction === DIRECTION_UP || direction === DIRECTION_DOWN) ? CELL_SIZE * 2 : CELL_SIZE,
+      height: (direction === DIRECTION_LEFT || direction === DIRECTION_RIGHT) ? CELL_SIZE * 2 : CELL_SIZE,
+      groups: [COLLISION_GROUP_BULLET] });
 
-    this.x = x;
-    this.y = y;
     this.direction = direction;
     this.damage = damage;
     this.resourceManager = ResourceManager;
@@ -54,11 +50,14 @@ class Bullet extends BaseObject {
   }
 
   draw(context) {
+    if (this.map.isDebug) {
+      return;
+    }
     const [spriteX, spriteY, spriteWidth, spriteHeight] = BULLET_SPRITE[this.direction];
     context.drawSprite(
       this.resourceManager.get(FILENAME_SPRITES),
       spriteX, spriteY, spriteWidth, spriteHeight,
-      this.x - (spriteWidth / 2), this.y - (spriteHeight / 2), // centered
+      this.physicEntity.midX - (spriteWidth / 2), this.physicEntity.midY - (spriteHeight / 2), // centered
       spriteWidth, spriteHeight
     );
 
@@ -67,7 +66,7 @@ class Bullet extends BaseObject {
       context.drawSprite(
         this.resourceManager.get(FILENAME_SPRITES),
         spriteX, spriteY, spriteWidth, spriteHeight,
-        this.x - (spriteWidth / 2), this.y - (spriteHeight / 2), // centered
+        this.physicEntity.midX - (spriteWidth / 2), this.physicEntity.midY - (spriteHeight / 2), // centered
         spriteWidth, spriteHeight
       );
     }
@@ -101,49 +100,26 @@ class Bullet extends BaseObject {
         break;
     }
 
-    const res = this.map.checkCollision(this, this.x, this.y, [MAP_OBJECT_JUNGLE, MAP_OBJECT_ICE, MAP_OBJECT_WATER])
-             || this.map.checkCollision(this, this.x - 1, this.y - 1, [MAP_OBJECT_JUNGLE, MAP_OBJECT_ICE, MAP_OBJECT_WATER]);
-    if (res) {
-      if (res === 'out-of-bounds') {
-        this.isActive = false;
-        this.map.removeObject(this);
-      } else {
-        const res = this.map.getByRowCell(this.x, this.y);
-        if (res) {
-          this.x += deltaX;
-          this.y += deltaY;
-          const { row, cell } = res;
-          const row2 = (this.direction === DIRECTION_UP || this.direction === DIRECTION_DOWN) ? row : row - 1;
-          const cell2 = (this.direction === DIRECTION_UP || this.direction === DIRECTION_DOWN) ? cell - 1 : cell;
-
-          const block = map.get(cell, row);
-          const block2 = map.get(cell2, row2);
-
-          if (block === MAP_OBJECT_BRICK) {
-            this.map.set(cell, row, MAP_OBJECT_EMPTY);
-          }
-          if (block2 === MAP_OBJECT_BRICK) {
-            this.map.set(cell2, row2, MAP_OBJECT_EMPTY);
-          }
-
-          this.map.redrawMap();
-          this.explode();
-        } else {
-          this.isActive = false;
-          this.map.removeObject(this);
+    const objs = this.map.world.getCollisions(this.physicEntity, this.tank.isPlayer ? COLLISION_GROUPS_PLAYER_BULLET : COLLISION_GROUPS_ENEMY_BULLET);
+    if (this.map.world.isOutOfWorld(this.physicEntity)) { // за межі карти
+      this.isActive = false;
+      this.map.removeObject(this);
+    }
+    if (objs.length) {
+      for (const obj of objs) {
+        if (obj.ref && obj.ref.block === MAP_OBJECT_BRICK) {
+          this.map.clear(obj.ref.cell, obj.ref.row);
+        }
+        if (obj.ref.constructor.name === 'Tank') {
+          obj.ref.hit();
         }
       }
+      this.map.redrawMap();
+      this.explode();
       return;
     }
     this.x += deltaX;
     this.y += deltaY;
-
-    function removeBlock(map, row, cell, damage) {
-      const block = map.get(cell, row);
-      if (block === MAP_OBJECT_BRICK) {
-        map.set(cell, row, MAP_OBJECT_EMPTY);
-      }
-    }
   }
 
   async explode() {
@@ -158,9 +134,5 @@ class Bullet extends BaseObject {
         resolve();
       }, EXPLOSION_TIME / 2);
     });
-  }
-
-  get mapBounds() {
-    return [this.x, this.y, 0, 0];
   }
 }

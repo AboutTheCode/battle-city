@@ -1,7 +1,7 @@
 import {
   CELL_SIZE,
   FILENAME_SPRITES,
-  MAP_OBJECT_BRICK,
+  MAP_OBJECT_BRICK, MAP_OBJECT_EMPTY,
   MAP_OBJECT_ICE,
   MAP_OBJECT_JUNGLE,
   MAP_OBJECT_SPRITES,
@@ -11,7 +11,7 @@ import {
 } from '../constants.js';
 import DrawingContext from '../DrawingContext.js';
 
-const TOOLS = [MAP_OBJECT_BRICK, MAP_OBJECT_STEEL, MAP_OBJECT_JUNGLE, MAP_OBJECT_WATER, MAP_OBJECT_ICE];
+const TOOLS = [MAP_OBJECT_EMPTY, MAP_OBJECT_BRICK, MAP_OBJECT_STEEL, MAP_OBJECT_JUNGLE, MAP_OBJECT_WATER, MAP_OBJECT_ICE];
 
 export default
 class ConstructorSidebar {
@@ -36,15 +36,19 @@ class ConstructorSidebar {
     this.context.drawRect(0, 0, spriteWidth, spriteHeight, '#636363');
 
     const drawIcon = (icon, x, y, selected) => {
-      const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[icon];
       if (selected) {
-        this.context.drawRect(x - 3, y - 3, CELL_SIZE + 6, CELL_SIZE + 6, '#000');
+        this.context.drawRect(x - 3, y - 3, CELL_SIZE + 6, CELL_SIZE + 6, 'red');
       }
-      this.context.drawSprite(
-        this.resourceManager.get(FILENAME_SPRITES),
-        spriteX, spriteY, spriteWidth, spriteHeight,
-        x, y, CELL_SIZE, CELL_SIZE
-      );
+      if (icon === MAP_OBJECT_EMPTY) {
+        this.context.drawRect(x, y, CELL_SIZE, CELL_SIZE, '#000');
+      } else {
+        const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[icon];
+        this.context.drawSprite(
+          this.resourceManager.get(FILENAME_SPRITES),
+          spriteX, spriteY, spriteWidth, spriteHeight,
+          x, y, CELL_SIZE, CELL_SIZE
+        );
+      }
     };
 
     let n = 0;

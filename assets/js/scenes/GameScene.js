@@ -7,20 +7,20 @@ import {
   DIRECTION_DOWN,
   DIRECTION_UP,
   DIRECTION_RIGHT,
-  DIRECTION_LEFT, TANK_NORMAL, CELL_SIZE, MAP_SIZE
+  DIRECTION_LEFT,
+  CELL_SIZE,
+  MAP_SIZE,
+  BG_COLOR
 } from '../constants.js';
 import AIPlayer from '../AIPlayer.js';
-import { STAGES } from '../stages.js';
 
 export default
 class GameScene extends Scene {
-  aiPlayers = [];
-
   nextEnemyPlace = 1;
 
   isStarted = false;
 
-  constructor({ DrawingContext, ResourceManager, GameMap, GameSidebar, Sounds, SceneManager }) {
+  constructor({ DrawingContext, ResourceManager, GameMap, GameSidebar, Sounds, SceneManager, GameState }) {
     super();
 
     this.drawingContext = DrawingContext;
@@ -29,6 +29,7 @@ class GameScene extends Scene {
     this.sidebar = GameSidebar;
     this.sounds = Sounds;
     this.sceneManager = SceneManager;
+    this.gameState = GameState;
   }
 
   drawStage() {
@@ -47,14 +48,13 @@ class GameScene extends Scene {
       this.drawingContext.clear('#000');
       this.drawingContext.drawRect(0, 0, this.drawingContext.width, height, '#0089fb');
       this.drawingContext.drawRect(0, this.drawingContext.height - height, this.drawingContext.width, this.drawingContext.height, '#ffda00');
-      this.drawingContext.drawText(this.stage.title, this.drawingContext.width / 2, this.drawingContext.height / 2 - 20);
-      this.drawingContext.drawText(this.stage.subtitle, this.drawingContext.width / 2, this.drawingContext.height / 2 + 40);
+      this.drawingContext.drawText(this.gameState.stage.title, this.drawingContext.width / 2, this.drawingContext.height / 2 - 20);
+      this.drawingContext.drawText(this.gameState.stage.subtitle, this.drawingContext.width / 2, this.drawingContext.height / 2 + 40);
     };
   }
 
   async loading() {
-    this.stage = STAGES[this.sceneManager.currentStageIndex];
-    this.tanks = [...this.stage.tanks];
+    this.gameState.loadStage();
 
     await this.resourceManager.loadResources([
       FILENAME_SPRITES
@@ -90,7 +90,8 @@ class GameScene extends Scene {
       direction: DIRECTION_UP,
       ResourceManager: this.resourceManager,
       Sounds: this.sounds,
-      map: this.map
+      map: this.map,
+      GameState: this.gameState
     });
     this.map.putPlayer1(this.playerTank);
 
@@ -109,12 +110,12 @@ class GameScene extends Scene {
     };
 
     this.timer = setInterval(() => {
-      if (!this.tanks.length) {
+      if (!this.gameState.tanks.length) {
         return;
       }
-      const tank = this.tanks.shift();
+      const tank = this.gameState.tanks.shift();
       this.createEnemyTank(tank)
-    }, this.stage.tankCreateTimeout || 5000);
+    }, this.gameState.enemyTankBornTimeout || 5000);
     this.onStartDraw = this.drawStage();
   }
 
@@ -125,7 +126,7 @@ class GameScene extends Scene {
 
     const PADDING_SIZE = 20;
 
-    this.drawingContext.clear('#636363');
+    this.drawingContext.clear(BG_COLOR);
 
     const windowWidth = this.drawingContext.width - (PADDING_SIZE * 2) - SIDEBAR_WIDTH;
     const windowHeight = this.drawingContext.height - (PADDING_SIZE * 2);
@@ -176,20 +177,16 @@ class GameScene extends Scene {
     if (this.inputState.isShoot) {
       this.playerTank.shoot();
     }
-
-    for (const player of this.aiPlayers) {
-      player.tick();
-    }
   }
 
   createEnemyTank(tankType) {
-    let x = CELL_SIZE;
-    let y = CELL_SIZE;
+    let x = 0;
+    let y = 0;
 
     if (this.nextEnemyPlace === 1) {
       x = (MAP_SIZE * CELL_SIZE) / 2 - 1;
     } else if (this.nextEnemyPlace === 2) {
-      x = (MAP_SIZE - 1) * CELL_SIZE;
+      x = (MAP_SIZE - 2) * CELL_SIZE;
     }
     this.nextEnemyPlace++;
     if (this.nextEnemyPlace === 3) {
@@ -203,16 +200,16 @@ class GameScene extends Scene {
       direction: DIRECTION_DOWN,
       ResourceManager: this.resourceManager,
       Sounds: this.sounds,
+      map: this.map,
+      GameState: this.gameState
+    });
+    tank.player = new AIPlayer({
+      tank,
       map: this.map
     });
     tank.born(false);
     this.map.addObject(tank);
-
-    const player = new AIPlayer({
-      tank,
-      map: this.map
-    });
-    this.aiPlayers.push(player);
+    this.map.world.addObject(tank.physicEntity);
   }
 
   //

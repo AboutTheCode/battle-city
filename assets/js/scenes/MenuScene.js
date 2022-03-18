@@ -2,7 +2,6 @@ import Scene from '../Scene.js';
 import ConstructorScene from './ConstructorScene.js';
 import GameScene from './GameScene.js';
 import Button from '../ui/Button.js';
-import { STAGES } from '../stages.js';
 
 const LOGO_SPRITES = 'images/logo.png';
 
@@ -10,7 +9,7 @@ export default
 class MenuScene extends Scene {
   elements = [];
 
-  constructor({ di, SceneManager, ResourceManager, DrawingContext, canvas }) {
+  constructor({ di, SceneManager, ResourceManager, DrawingContext, canvas, GameState }) {
     super();
 
     this.gameScene = di.get(GameScene);
@@ -19,6 +18,7 @@ class MenuScene extends Scene {
     this.drawingContext = DrawingContext;
     this.sceneManager = SceneManager;
     this.canvas = canvas;
+    this.gameState = GameState;
   }
 
   move({ x, y }) {
@@ -45,7 +45,7 @@ class MenuScene extends Scene {
         height: 50,
         text: '1 гравець',
         click: () => {
-          this.sceneManager.currentStageIndex = 0;
+          this.gameState.newGame();
           this.sceneManager.loadScene(this.gameScene);
         }
       }),
@@ -56,6 +56,7 @@ class MenuScene extends Scene {
         height: 50,
         text: '2 гравця',
         click: () => {
+          this.gameState.newGame();
           this.sceneManager.loadScene(this.gameScene);
         }
       }),
