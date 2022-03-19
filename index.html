@@ -5,20 +5,63 @@
   <meta name="viewport"
         content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Putin Caput</title>
+  <title>The Game: Putin Caput</title>
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="The Game: Putin Caput">
+  <meta property="og:description" content="">
+  <meta property="og:url" content="">
+  <meta property="og:image" content="/assets/images/preview.png">
+  <meta name="theme-color" content="#000">
   <style>
     body {
         padding: 0;
         margin: 0;
+        background: #000;
+        overflow: hidden;
+        position: relative;
+        user-select: none;
     }
     #main {
         width: 100vw;
         height: 100vh;
     }
+    .comeback {
+        display: block;
+        position: absolute;
+        top: 0;
+        right: 20px;
+        background-image: url(/assets/images/donate.png);
+        background-size: 144px 60px;
+        width: 144px;
+        height: 60px;
+    }
+    .youtube {
+        font-family: 'Press Start 2P', sans-serif;
+        position: absolute;
+        bottom: 0;
+        padding-left: 25px;
+        left: 50%;
+        font-size: 12px;
+        height: 23px;
+        line-height: 17px;
+        text-decoration: none;
+        transform: translateX(-50%);
+        color: #fff;
+        background-image: url(/assets/images/youtube.png);
+        background-repeat: no-repeat;
+        background-size: 21px 16px;
+    }
   </style>
   <link rel="preload" as="image" href="assets/images/sprites2.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
+
+<a href="https://www.comebackalive.in.ua/donate" target="_blank" class="comeback"></a>
+<a href="https://www.youtube.com/c/AboutTheCode?sub_confirmation=1" target="_blank" class="youtube">Підписатись на youtube-канал</a>
+
 
 <canvas id="main"></canvas>
 
@@ -28,6 +71,9 @@
 <audio id="audio_explosion"><source src="assets/sounds/explosion.mp3"></audio>
 <audio id="audio_hit"><source src="assets/sounds/be_hit.mp3"></audio>
 <audio id="audio_start"><source src="assets/sounds/start.mp3"></audio>
+<audio id="audio_level_up"><source src="assets/sounds/level_up.ogg"></audio>
+<audio id="audio_collect"><source src="assets/sounds/collect.mp3"></audio>
+<audio id="audio_bomb"><source src="assets/sounds/bomb.mp3"></audio>
 
 <script src="assets/js/DependencyInjection.js"></script>
 <script type="module">
@@ -41,6 +87,7 @@
   import MenuScene from './assets/js/scenes/MenuScene.js';
   import Sounds from './assets/js/Sounds.js';
   import GameState from './assets/js/GameState.js';
+  import Translation from './assets/js/Translation.js';
 
   async function bootstrap() {
     const di = DependencyInjection.createRoot({
@@ -51,6 +98,7 @@
       GameSidebar,
       ConstructorSidebar,
       Sounds,
+      Translation,
       GameState
     });
     di.set('canvas', document.getElementById('main'));

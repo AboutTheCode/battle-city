@@ -9,7 +9,14 @@ import {
   MAP_OBJECT_STEEL,
   MAP_OBJECT_JUNGLE,
   COLLISION_GROUP_ENV,
-  MAP_OBJECT_WATER
+  MAP_OBJECT_WATER,
+  BONUSES_SPRITES,
+  BONUSES,
+  MAX_BONUSES_ON_MAP,
+  COLLISION_GROUP_BONUS,
+  BONUS_IMMORTAL,
+  BONUS_FREEZE,
+  BONUS_BASE_STEEL, BONUS_RANK, BONUS_BAYRAKTAR, BONUS_LIFE
 } from '../constants.js';
 import DrawingContext from '../DrawingContext.js';
 import PhysicsWorld from '../physics/PhysicsWorld.js';
@@ -25,7 +32,12 @@ class GameMap {
 
   gameObjects = [];
 
-  constructor({ ResourceManager }) {
+  bonuses = [];
+
+  blinkSlide = 0;
+
+  constructor({ ResourceManager, Sounds }) {
+    this.sounds = Sounds;
     this.resourceManager = ResourceManager;
     const size = MAP_SIZE * CELL_SIZE;
     this.canvas = new OffscreenCanvas(size, size);
@@ -36,6 +48,7 @@ class GameMap {
     this.isConstructor = false;
     this.isDebug = false;
     this.world = new PhysicsWorld({ width: size, height: size });
+    setInterval(() => this.blinkSlide = this.blinkSlide === 1 ? 0 : 1, 250);
   }
 
   setMap(map) {
@@ -81,20 +94,21 @@ class GameMap {
     }
   }
 
-  putBase() {
-    this.set(MAP_SIZE / 2 - 2, MAP_SIZE - 3, MAP_OBJECT_BRICK);
-    this.set(MAP_SIZE / 2 - 1, MAP_SIZE - 3, MAP_OBJECT_BRICK);
-    this.set(MAP_SIZE / 2, MAP_SIZE - 3, MAP_OBJECT_BRICK);
-    this.set(MAP_SIZE / 2 + 1, MAP_SIZE - 3, MAP_OBJECT_BRICK);
-    this.set(MAP_SIZE / 2 - 2, MAP_SIZE - 2, MAP_OBJECT_BRICK);
-    this.set(MAP_SIZE / 2 - 2, MAP_SIZE - 1, MAP_OBJECT_BRICK);
-    this.set(MAP_SIZE / 2 + 1, MAP_SIZE - 2, MAP_OBJECT_BRICK);
-    this.set(MAP_SIZE / 2 + 1, MAP_SIZE - 1, MAP_OBJECT_BRICK);
+  putBase(material = MAP_OBJECT_BRICK) {
+    this.set(MAP_SIZE / 2 - 2, MAP_SIZE - 3, material);
+    this.set(MAP_SIZE / 2 - 1, MAP_SIZE - 3, material);
+    this.set(MAP_SIZE / 2, MAP_SIZE - 3, material);
+    this.set(MAP_SIZE / 2 + 1, MAP_SIZE - 3, material);
+    this.set(MAP_SIZE / 2 - 2, MAP_SIZE - 2, material);
+    this.set(MAP_SIZE / 2 - 2, MAP_SIZE - 1, material);
+    this.set(MAP_SIZE / 2 + 1, MAP_SIZE - 2, material);
+    this.set(MAP_SIZE / 2 + 1, MAP_SIZE - 1, material);
 
     this.set(MAP_SIZE / 2, MAP_SIZE - 2, MAP_OBJECT_BASE);
     this.set(MAP_SIZE / 2, MAP_SIZE - 1, MAP_OBJECT_BASE);
     this.set(MAP_SIZE / 2 - 1, MAP_SIZE - 2, MAP_OBJECT_BASE);
     this.set(MAP_SIZE / 2 - 1, MAP_SIZE - 1, MAP_OBJECT_BASE);
+    this.currentMapImage = null;
   }
 
   getX(cell) {
@@ -220,6 +234,13 @@ class GameMap {
     if (!this.isDebug) {
       this.drawJungle();
     }
+    for (const index in this.bonuses) {
+      if ((this.blinkSlide + Number(index)) % 2 === 0) { // щоб по черзі блимали
+        const { type, row, cell } = this.bonuses[index];
+        const [x, y, w, h] = BONUSES_SPRITES[type];
+        this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), x, y, w, h, cell * CELL_SIZE, row * CELL_SIZE, w, h);
+      }
+    }
     return this.canvas.transferToImageBitmap();
   }
 
@@ -279,5 +300,68 @@ class GameMap {
   removeObject(item) {
     this.world.removeObject(item.physicEntity);
     this.gameObjects = this.gameObjects.filter((obj) => obj !== item);
+  }
+
+  createBonus() {
+    const bonusIndex = Math.round(Math.random() * (BONUSES.length - 1));
+    const row = Math.round(Math.random() * (MAP_SIZE - 4)) + 2;
+    const cell = Math.round(Math.random() * (MAP_SIZE - 4)) + 2;
+
+    if (this.bonuses.length === MAX_BONUSES_ON_MAP) {
+      const removeObj = this.bonuses.shift();
+      this.world.removeObject(removeObj.physic);
+    }
+    const bonus = {
+      isPowerUp: true,
+      row,
+      cell,
+      type: BONUSES[bonusIndex]
+    };
+    bonus.physic = new PhysicsEntity({
+      x: cell * CELL_SIZE,
+      y: row * CELL_SIZE,
+      width: CELL_SIZE * 2,
+      height: CELL_SIZE * 2,
+      ref: bonus,
+      groups: [COLLISION_GROUP_BONUS]
+    });
+    this.bonuses.push(bonus);
+    this.world.addObject(bonus.physic);
+  }
+
+  catchBonus(bonus, tank) {
+    this.bonuses = this.bonuses.filter((b) => b !== bonus);
+    this.world.removeObject(bonus.physic);
+
+    console.info(bonus);
+    console.trace();
+    switch (bonus.type) {
+      case BONUS_IMMORTAL:
+        tank.isImmortal = true;
+        setTimeout(() => tank.isImmortal = false, 5000);
+        break;
+      case BONUS_FREEZE:
+        this.gameObjects.forEach((obj) => !obj.isPlayer && (obj.isFreeze = true));
+        setTimeout(() => this.gameObjects.forEach((obj) => !obj.isPlayer && (obj.isFreeze = false)), 5000);
+        break;
+      case BONUS_BASE_STEEL:
+        this.putBase(MAP_OBJECT_STEEL);
+        setTimeout(() => this.putBase(MAP_OBJECT_BRICK), 10000);
+        break;
+      case BONUS_RANK:
+        this.sounds.play('levelUp');
+        if (tank.gameState.tankRank < 3) {
+          tank.gameState.tankRank++;
+        }
+        break;
+      case BONUS_BAYRAKTAR:
+        this.sounds.play('bomb');
+        this.gameObjects.forEach((obj) => !obj.isPlayer && obj.explode());
+        break;
+      case BONUS_LIFE:
+        this.sounds.play('collect');
+        tank.gameState.lives++;
+        break;
+    }
   }
 }

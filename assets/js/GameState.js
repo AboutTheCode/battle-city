@@ -13,6 +13,10 @@ class GameState {
 
   killsScore = 0;
 
+  killsCount = 0;
+
+  tankRank = 0;
+
   constructor({ GameMap }) {
     this.map = GameMap;
   }
@@ -28,6 +32,8 @@ class GameState {
     this.enemyTankBornTimeout = this.stage.enemyTankBornTimeout;
     this.map.setMap(this.stage.map);
     this.killsScore = 0;
+    this.killsCount = 0;
+    this.tankRank = 0;
     this.kills = {
       [TANK_NORMAL]: 0,
       [TANK_SWIFT]: 0,

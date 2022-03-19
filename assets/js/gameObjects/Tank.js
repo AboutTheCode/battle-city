@@ -54,15 +54,19 @@ class Tank extends BaseObject {
     this.gameState = GameState;
 
     this.speed = 4;
-    if (type === TANK_SWIFT) {
+    if (type === TANK_SWIFT ) {
       this.speed = 8
     }
 
     this.shootCooldown = 0;
     this.bullets = [];
     this.isBorn = false;
+    this.isBonus = false;
+    this.isBonusSlide = 0;
+    this.isBonusSide = 0;
     this.isImmortal = false;
     this.isExplosion = false;
+    this.isFreeze = false;
   }
 
   get isPlayer() {
@@ -81,7 +85,7 @@ class Tank extends BaseObject {
       return;
     }
 
-    this.drawTankSprite(context, this.bounds);
+    this.drawTankSprite(context, this.bounds, true);
     // debug frame
     // const [debugX, debugY, tankWidth, tankHeight] = this.mapBounds;
     // context.drawRect(this.x - 1, this.y - 1, 2, 2, 'lightgreen');
@@ -105,8 +109,15 @@ class Tank extends BaseObject {
     }
   }
 
-  drawTankSprite(context, sprite) {
-    const [spriteX, spriteY, spriteWidth, spriteHeight] = sprite;
+  drawTankSprite(context, sprite, isTank = false) {
+    let [spriteX, spriteY, spriteWidth, spriteHeight] = sprite;
+
+    if (this.isBonus && this.isBonusSide === 1) {
+      spriteY += 528;
+    }
+    if (this.isPlayer && this.gameState.tankRank && isTank) {
+      spriteY += spriteHeight * this.gameState.tankRank;
+    }
     context.drawSprite(
       this.resourceManager.get(FILENAME_SPRITES),
       spriteX, spriteY, spriteWidth, spriteHeight,
@@ -123,10 +134,18 @@ class Tank extends BaseObject {
       }
     }
     this.tickSlide = this.tickSlide + 1;
+    this.isBonusSlide = this.isBonusSlide + 1;
     if (this.tickSlide === 100) {
       this.tickSlide = 0;
     }
-    if (this.player) {
+    if (this.isBonusSlide === 10) {
+      this.isBonusSlide = 0;
+      this.isBonusSide = this.isBonusSide === 0 ? 1 : 0;
+    }
+    if (this.gameState.tankRank === 2) { // TANK RANK 2
+      this.speed = 6;
+    }
+    if (this.player && !this.isFreeze) {
       this.player.tick();
     }
   }
@@ -161,8 +180,15 @@ class Tank extends BaseObject {
         break;
     }
 
-    const objs = this.map.world.getCollisions(this.physicEntity, this.isPlayer ? COLLISION_GROUPS_PLAYER_TANK : COLLISION_GROUPS_ENEMY_TANK);
+    let objs = this.map.world.getCollisions(this.physicEntity, this.isPlayer ? COLLISION_GROUPS_PLAYER_TANK : COLLISION_GROUPS_ENEMY_TANK);
     const outOfWorld = this.map.world.isOutOfWorld(this.physicEntity);
+    if (this.isPlayer) {
+      const bonus = objs.find((obj) => obj.ref && obj.ref.isPowerUp);
+      objs = objs.filter((obj) => obj.ref && !obj.ref.isPowerUp);
+      if (bonus) {
+        this.map.catchBonus(bonus.ref, this);
+      }
+    }
     if (objs.length || outOfWorld) {
       this.x = oldX;
       this.y = oldY;
@@ -187,8 +213,8 @@ class Tank extends BaseObject {
     }
 
     const { x: tankX, y: tankY, width: tankWidth, height: tankHeight } = this.physicEntity;
-    let x = tankX + CELL_SIZE;
-    let y = tankY + CELL_SIZE;
+    let x = tankX + CELL_SIZE / 2;
+    let y = tankY + CELL_SIZE / 2;
     if (this.direction === DIRECTION_DOWN) {
       y += tankHeight;
     }
@@ -202,10 +228,12 @@ class Tank extends BaseObject {
       x -= CELL_SIZE;
     }
     this.bullets = this.bullets.filter((bullet) => bullet.isActive);
-    if (!this.bullets.length) {
+
+    const maxBulletCount = this.gameState.tankRank > 0 ? 2 : 1;  // TANK RANK 1
+    if (this.bullets.length < maxBulletCount) {
       const bullet = new Bullet({
-        x: this.x,
-        y: this.y,
+        x: x,
+        y: y,
         direction: this.direction,
         ResourceManager: this.resourceManager,
         Sounds: this.sounds,
@@ -235,21 +263,27 @@ class Tank extends BaseObject {
   }
 
   async hit() {
-    if (this.isBorn || this.isImmortal) {
+    if (this.isBorn || this.isImmortal || this.isExplosion) {
       return;
     }
     await this.explode();
     if (this.isPlayer) {
       this.gameState.lives -= 1;
-      if (!this.gameState.lives) {
+      if (this.gameState.lives <= 0) {
         // game over
       } else {
+        this.gameState.tankRank = 0;
         this.map.putPlayer1(this);
         this.born();
       }
     } else {
+      if (this.isBonus) {
+        this.isBonus = false;
+        this.map.createBonus();
+      }
       this.gameState.kills[this.type] += 1;
       this.gameState.killsScore += this.type * 100;
+      this.gameState.killsCount += 1;
     }
   }
 

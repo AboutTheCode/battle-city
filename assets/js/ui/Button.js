@@ -17,7 +17,9 @@ class Button extends Element {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#636363';
-    if (this.state) {
+    if (this.disabled) {
+      ctx.fillStyle = '#636363';
+    } else if (this.state) {
       ctx.fillRect(this.x, this.y, this.width, this.height);
       ctx.fillStyle = '#fff';
     } else {

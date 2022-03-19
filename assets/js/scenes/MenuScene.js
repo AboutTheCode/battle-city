@@ -9,7 +9,7 @@ export default
 class MenuScene extends Scene {
   elements = [];
 
-  constructor({ di, SceneManager, ResourceManager, DrawingContext, canvas, GameState }) {
+  constructor({ di, SceneManager, ResourceManager, DrawingContext, canvas, GameState, Translation }) {
     super();
 
     this.gameScene = di.get(GameScene);
@@ -19,6 +19,7 @@ class MenuScene extends Scene {
     this.sceneManager = SceneManager;
     this.canvas = canvas;
     this.gameState = GameState;
+    this.translation = Translation;
   }
 
   move({ x, y }) {
@@ -43,7 +44,7 @@ class MenuScene extends Scene {
         y: 450,
         width: 300,
         height: 50,
-        text: '1 гравець',
+        text: this.translation.get('1player'),
         click: () => {
           this.gameState.newGame();
           this.sceneManager.loadScene(this.gameScene);
@@ -54,7 +55,8 @@ class MenuScene extends Scene {
         y: 505,
         width: 300,
         height: 50,
-        text: '2 гравця',
+        disabled: true,
+        text: this.translation.get('2players'),
         click: () => {
           this.gameState.newGame();
           this.sceneManager.loadScene(this.gameScene);
@@ -65,7 +67,7 @@ class MenuScene extends Scene {
         y: 560,
         width: 300,
         height: 50,
-        text: 'Конструктор',
+        text: this.translation.get('constructor'),
         click: () => {
           this.sceneManager.loadScene(this.constructorScene);
         }

@@ -2,13 +2,14 @@ import EventEmitter from '../EventEmitter.js';
 
 export default
 class Element extends EventEmitter {
-  constructor({ x, y, width, height, click }) {
+  constructor({ x, y, width, height, disabled, click }) {
     super();
 
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
+    this.disabled = disabled;
 
     if (click) {
       this.on('click', click);
@@ -19,6 +20,9 @@ class Element extends EventEmitter {
   }
 
   click({ x, y }) {
+    if (this.disabled) {
+      return;
+    }
     this.emit('click', { x, y });
   }
 

@@ -10,7 +10,7 @@ import {
   DIRECTION_LEFT,
   CELL_SIZE,
   MAP_SIZE,
-  BG_COLOR
+  BG_COLOR, PAUSE_SPRITE, CONTROLS_SPRITE
 } from '../constants.js';
 import AIPlayer from '../AIPlayer.js';
 
@@ -19,6 +19,8 @@ class GameScene extends Scene {
   nextEnemyPlace = 1;
 
   isStarted = false;
+
+  isPause = false;
 
   constructor({ DrawingContext, ResourceManager, GameMap, GameSidebar, Sounds, SceneManager, GameState }) {
     super();
@@ -59,29 +61,6 @@ class GameScene extends Scene {
     await this.resourceManager.loadResources([
       FILENAME_SPRITES
     ]);
-    //
-    // const url = new URL(window.location);
-    // let serverUrl = 'http://localhost:8080';
-    // if (url.searchParams.has('gameId')) {
-    //   serverUrl += `/?gameId=${url.searchParams.get('gameId')}`;
-    // }
-    // const source = new EventSource(serverUrl);
-    // source.onmessage = ({ lastEventId, data }) => {
-    //   if (!this.gameId) {
-    //     url.searchParams.set('gameId', lastEventId);
-    //     window.history.pushState({ gameId: lastEventId }, '', url);
-    //   }
-    //   this.gameId = lastEventId;
-    //   const { cells, isActiveGame, turnKey, wonSide, state } = JSON.parse(data);
-    //   this.cells = cells;
-    //   this.isActiveGame = isActiveGame;
-    //   this.turnKey = turnKey;
-    //   this.wonSide = wonSide;
-    //   this.state = state;
-    //   if (this.isActiveGame) {
-    //     this.audios[state].play();
-    //   }
-    // }
 
     this.playerTank = new Tank({
       x: 0,
@@ -110,11 +89,12 @@ class GameScene extends Scene {
     };
 
     this.timer = setInterval(() => {
-      if (!this.gameState.tanks.length) {
+      if (!this.gameState.tanks.length || this.isPause) {
         return;
       }
-      const tank = this.gameState.tanks.shift();
-      this.createEnemyTank(tank)
+      const tankType = this.gameState.tanks.shift();
+      const tank = this.createEnemyTank(tankType);
+      tank.isBonus = this.gameState.tanks.length % 5 === 0;
     }, this.gameState.enemyTankBornTimeout || 5000);
     this.onStartDraw = this.drawStage();
   }
@@ -124,12 +104,13 @@ class GameScene extends Scene {
       return this.onStartDraw();
     }
 
-    const PADDING_SIZE = 20;
+    const PADDING_SIZE_X = 0;
+    const PADDING_SIZE_Y = 20;
 
     this.drawingContext.clear(BG_COLOR);
 
-    const windowWidth = this.drawingContext.width - (PADDING_SIZE * 2) - SIDEBAR_WIDTH;
-    const windowHeight = this.drawingContext.height - (PADDING_SIZE * 2);
+    const windowWidth = this.drawingContext.width - (PADDING_SIZE_X * 2) - SIDEBAR_WIDTH;
+    const windowHeight = this.drawingContext.height - (PADDING_SIZE_Y * 2);
     const minSide = Math.min(windowWidth, windowHeight);
 
     // draw sidebar
@@ -139,25 +120,41 @@ class GameScene extends Scene {
     const img = this.map.draw();
     this.drawingContext.drawImage(img, offsetX, offsetY, minSide, minSide);
 
+    if (this.isPause) {
+      const [x, y, w, h] = PAUSE_SPRITE;
+      this.drawingContext.drawSprite(this.resourceManager.get(FILENAME_SPRITES), x, y, w, h, offsetX + (minSide - w) / 2, offsetY + (minSide - h) / 2, w, h)
+    }
+
     const sidebar = this.sidebar.draw();
     this.drawingContext.drawImage(sidebar, offsetX + minSide, offsetY, sidebar.width * (minSide / sidebar.height), minSide);
+
+    const [x, y, w, h] = CONTROLS_SPRITE;
+    this.drawingContext.drawSprite(this.resourceManager.get(FILENAME_SPRITES), x, y, w, h, offsetX, 0, w / 2, h / 2)
   }
 
   changeState({
     Space,
+    KeyP,
     KeyW, ArrowUp,
     KeyS, ArrowDown,
     KeyA, ArrowLeft,
     KeyD, ArrowRight,
   }) {
+    if (KeyP) {
+      this.isPause = !this.isPause;
+    }
     this.inputState.isShoot = Space;
     this.inputState.isUp = KeyW || ArrowUp;
     this.inputState.isDown = KeyS || ArrowDown;
     this.inputState.isLeft = KeyA || ArrowLeft;
     this.inputState.isRight = KeyD || ArrowRight;
+
   }
 
   tick() {
+    if (this.isPause) {
+      return;
+    }
     for (const object of this.map.gameObjects) {
       object.tick();
     }
@@ -210,31 +207,6 @@ class GameScene extends Scene {
     tank.born(false);
     this.map.addObject(tank);
     this.map.world.addObject(tank.physicEntity);
+    return tank;
   }
-
-  //
-  // click({ x, y }) {
-  //   const cellIndex = Math.ceil(x / CELL_SIZE);
-  //   const rowIndex = Math.ceil(y / CELL_SIZE);
-  //   if (!this.isActiveGame) {
-  //     return;
-  //   }
-  //   if (cellIndex > 3 || rowIndex > 3) {
-  //     return;
-  //   }
-  //   const cellState = this.cells[rowIndex - 1][cellIndex - 1];
-  //   if (cellState !== CELL_EMPTY || !this.turnKey) {
-  //     return;
-  //   }
-  //   this.audios[this.state].play();
-  //   fetch(SERVER_URL, {
-  //     method: 'POST',
-  //     body: JSON.stringify({
-  //       row: rowIndex - 1,
-  //       cell: cellIndex - 1,
-  //       gameId: this.gameId,
-  //       turnKey: this.turnKey
-  //     })
-  //   });
-  // }
 }

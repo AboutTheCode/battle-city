@@ -40,12 +40,15 @@ export const TANK_SWIFT = 2;
 export const TANK_MEDIUM = 3;
 export const TANK_HEAVY = 4;
 
+export const PAUSE_SPRITE = [1180, 704, 158, 28];
+export const CONTROLS_SPRITE = [0, 1044, 900, 36];
+
 export const TANKS_SPRITES = {
   [TANK_PLAYER]: {
-    [DIRECTION_UP]: [[4, 8, 52, 52], [68, 8, 52, 52]],
-    [DIRECTION_DOWN]: [[264, 4, 52, 52], [328, 4, 52, 52]],
-    [DIRECTION_LEFT]: [[136, 4, 52, 52], [204, 4, 52, 52]],
-    [DIRECTION_RIGHT]: [[392, 4, 52, 52], [460, 4, 52, 52]],
+    [DIRECTION_UP]: [[0, 0, 64, 64], [64, 0, 64, 64]],
+    [DIRECTION_DOWN]: [[256, 0, 64, 64], [320, 0, 64, 64]],
+    [DIRECTION_LEFT]: [[128, 0, 64, 64], [192, 0, 64, 64]],
+    [DIRECTION_RIGHT]: [[384, 0, 64, 64], [448, 0, 64, 64]],
   },
   [TANK_NORMAL]: {
     [DIRECTION_UP]: [[524, 264, 52, 60], [588, 264, 52, 60]],
@@ -73,6 +76,32 @@ export const TANKS_SPRITES = {
   }
 };
 
+export const BONUS_IMMORTAL = 0;
+export const BONUS_FREEZE = 1;
+export const BONUS_BASE_STEEL = 2;
+export const BONUS_RANK = 3;
+export const BONUS_BAYRAKTAR = 4;
+export const BONUS_LIFE = 5;
+
+export const MAX_BONUSES_ON_MAP = 2;
+export const BONUSES = [
+  BONUS_IMMORTAL,
+  BONUS_FREEZE,
+  BONUS_BASE_STEEL,
+  BONUS_RANK,
+  BONUS_BAYRAKTAR,
+  BONUS_LIFE
+];
+
+export const BONUSES_SPRITES = {
+  [BONUS_IMMORTAL]: [1052, 448, 64, 60],
+  [BONUS_FREEZE]: [1116, 448, 64, 60],
+  [BONUS_BASE_STEEL]: [1180, 448, 64, 60],
+  [BONUS_RANK]: [1244, 448, 64, 60],
+  [BONUS_BAYRAKTAR]: [1308, 448, 64, 60],
+  [BONUS_LIFE]: [1372, 448, 64, 60],
+};
+
 export const BULLET_SPRITE = {
   [DIRECTION_UP]: [1320, 408, 12, 16],
   [DIRECTION_DOWN]: [1384, 408, 12, 16],
@@ -92,7 +121,9 @@ export const SHOOT_COOLDOWN_DEFAULT = 200;
 
 export const COLLISION_GROUP_ENV = 'env';
 export const COLLISION_GROUP_TANK = 'tank';
-export const COLLISION_GROUP_BULLET = 'bullet';
+export const COLLISION_GROUP_BONUS = 'bonus';
+export const COLLISION_GROUP_PLAYER_BULLET = 'player_bullet';
+export const COLLISION_GROUP_ENEMY_BULLET = 'enemy_bullet';
 
 export const COLLISION_GROUP_BRICK = `${COLLISION_GROUP_ENV}${MAP_OBJECT_BRICK}`;
 export const COLLISION_GROUP_STEEL = `${COLLISION_GROUP_ENV}${MAP_OBJECT_STEEL}`;
@@ -103,7 +134,8 @@ export const COLLISION_GROUP_ENEMY_TANK= `${COLLISION_GROUP_TANK}enemy`;
 export const COLLISION_GROUPS_PLAYER_TANK = [ // з якими перешкодами може стикатись гравець
   COLLISION_GROUP_ENV,
   COLLISION_GROUP_WATER,
-  COLLISION_GROUP_ENEMY_TANK
+  COLLISION_GROUP_ENEMY_TANK,
+  COLLISION_GROUP_BONUS
 ];
 export const COLLISION_GROUPS_ENEMY_TANK = [ // з якими перешкодами може стикатись ворог
   COLLISION_GROUP_ENV,
@@ -111,13 +143,13 @@ export const COLLISION_GROUPS_ENEMY_TANK = [ // з якими перешкода
   COLLISION_GROUP_PLAYER_TANK
 ];
 export const COLLISION_GROUPS_PLAYER_BULLET = [
-  COLLISION_GROUP_BULLET,
+  COLLISION_GROUP_ENEMY_BULLET,
   COLLISION_GROUP_BRICK,
   COLLISION_GROUP_STEEL,
   COLLISION_GROUP_ENEMY_TANK
 ];
 export const COLLISION_GROUPS_ENEMY_BULLET = [
-  COLLISION_GROUP_BULLET,
+  COLLISION_GROUP_PLAYER_BULLET,
   COLLISION_GROUP_BRICK,
   COLLISION_GROUP_STEEL,
   COLLISION_GROUP_PLAYER_TANK

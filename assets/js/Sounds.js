@@ -7,7 +7,10 @@ class Sounds {
       shoot: document.getElementById('audio_shoot'),
       explosion: document.getElementById('audio_explosion'),
       hit: document.getElementById('audio_hit'),
-      start: document.getElementById('audio_start')
+      start: document.getElementById('audio_start'),
+      levelUp: document.getElementById('audio_level_up'),
+      collect: document.getElementById('audio_collect'),
+      bomb: document.getElementById('audio_bomb')
     };
   }
 

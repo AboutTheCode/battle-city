@@ -2,7 +2,8 @@ import BaseObject from './BaseObject.js';
 import {
   BULLET_SPRITE,
   CELL_SIZE,
-  COLLISION_GROUP_BULLET,
+  COLLISION_GROUP_PLAYER_BULLET,
+  COLLISION_GROUP_ENEMY_BULLET,
   COLLISION_GROUPS_ENEMY_BULLET,
   COLLISION_GROUPS_PLAYER_BULLET,
   DIRECTION_DOWN,
@@ -12,7 +13,7 @@ import {
   EXPLOSION_SPRITE,
   EXPLOSION_TIME,
   FILENAME_SPRITES,
-  MAP_OBJECT_BRICK
+  MAP_OBJECT_BRICK, MAP_OBJECT_STEEL
 } from '../constants.js';
 
 const SPEED_DIV = 4;
@@ -34,9 +35,9 @@ class Bullet extends BaseObject {
     super({
       x,
       y,
-      width: (direction === DIRECTION_UP || direction === DIRECTION_DOWN) ? CELL_SIZE * 2 : CELL_SIZE,
-      height: (direction === DIRECTION_LEFT || direction === DIRECTION_RIGHT) ? CELL_SIZE * 2 : CELL_SIZE,
-      groups: [COLLISION_GROUP_BULLET] });
+      width: CELL_SIZE,
+      height: CELL_SIZE,
+      groups: tank.isPlayer ? [COLLISION_GROUP_PLAYER_BULLET] : [COLLISION_GROUP_ENEMY_BULLET] });
 
     this.direction = direction;
     this.damage = damage;
@@ -108,6 +109,9 @@ class Bullet extends BaseObject {
     if (objs.length) {
       for (const obj of objs) {
         if (obj.ref && obj.ref.block === MAP_OBJECT_BRICK) {
+          this.map.clear(obj.ref.cell, obj.ref.row);
+        }
+        if (this.tank.isPlayer && this.tank.gameState.tankRank === 3 && obj.ref && obj.ref.block === MAP_OBJECT_STEEL) {  // TANK RANK 3
           this.map.clear(obj.ref.cell, obj.ref.row);
         }
         if (obj.ref.constructor.name === 'Tank') {

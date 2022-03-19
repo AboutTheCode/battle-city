@@ -31,7 +31,7 @@ class GameSidebar {
     this.context.drawRect(1,3,100, 100, BG_COLOR);
     this.context.drawText(`${this.gameState.tanks.length}`, 100, 30);
     this.context.drawText(`${this.gameState.lives}`, 100, 50);
-    this.context.drawText(`${this.gameState.killsScore}`, 100, 80);
+    this.context.drawText(`${this.gameState.killsCount}`, 100, 80);
 
     // this.currentMapImage = canvas.transferToImageBitmap();
     return this.canvas.transferToImageBitmap();
