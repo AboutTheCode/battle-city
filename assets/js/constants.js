@@ -12,6 +12,9 @@ export const MAP_OBJECT_BASE_DESTROID = 7;
 
 export const SIDEBAR_WIDTH = 128;
 export const SIDEBAR_SPRITE = [1501, 0, 128, 960];
+export const LIVES_P1_COORDS = [80, 604];
+export const LIVES_P2_COORDS = [80, 700];
+export const KILLS_COORDS = [64, 828];
 
 export const FILENAME_SPRITES = 'images/sprites2.png';
 export const BG_COLOR = '#636363';
@@ -122,3 +125,5 @@ export const COLLISION_GROUPS_ENEMY_BULLET = [
   COLLISION_GROUP_STEEL,
   COLLISION_GROUP_PLAYER_TANK
 ];
+
+export const SIDEBAR_TANK_SPRITE = [...TANKS_SPRITES[TANK_NORMAL][DIRECTION_UP][0], 28, 28];
