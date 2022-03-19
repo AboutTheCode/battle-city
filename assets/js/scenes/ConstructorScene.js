@@ -1,7 +1,5 @@
 import Scene from '../Scene.js';
-import Tank from '../gameObjects/Tank.js';
 import {
-  TANK_PLAYER,
   SIDEBAR_WIDTH,
   FILENAME_SPRITES,
   MAP_SIZE, CELL_SIZE, MAP_OBJECT_BRICK, MAP_OBJECT_STEEL, MAP_OBJECT_EMPTY
@@ -24,38 +22,12 @@ class ConstructorScene extends Scene {
   }
 
   async loading() {
-    // this.audios[CELL_X] = document.getElementById('audio_x');
-    // this.audios[CELL_O] = document.getElementById('audio_o');
-
     await this.resourceManager.loadResources([
       FILENAME_SPRITES
     ]);
     this.map.setMap(Array(MAP_SIZE ** 2).fill(MAP_OBJECT_EMPTY));
     this.map.putBase();
     this.map.isConstructor = true;
-    //
-    // const url = new URL(window.location);
-    // let serverUrl = 'http://localhost:8080';
-    // if (url.searchParams.has('gameId')) {
-    //   serverUrl += `/?gameId=${url.searchParams.get('gameId')}`;
-    // }
-    // const source = new EventSource(serverUrl);
-    // source.onmessage = ({ lastEventId, data }) => {
-    //   if (!this.gameId) {
-    //     url.searchParams.set('gameId', lastEventId);
-    //     window.history.pushState({ gameId: lastEventId }, '', url);
-    //   }
-    //   this.gameId = lastEventId;
-    //   const { cells, isActiveGame, turnKey, wonSide, state } = JSON.parse(data);
-    //   this.cells = cells;
-    //   this.isActiveGame = isActiveGame;
-    //   this.turnKey = turnKey;
-    //   this.wonSide = wonSide;
-    //   this.state = state;
-    //   if (this.isActiveGame) {
-    //     this.audios[state].play();
-    //   }
-    // }
   }
 
   move({ x, y }) {

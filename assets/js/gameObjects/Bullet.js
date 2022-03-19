@@ -33,10 +33,10 @@ class Bullet extends BaseObject {
                 damage
               }) {
     super({
-      x,
-      y,
-      width: CELL_SIZE,
-      height: CELL_SIZE,
+      x: x - 3,
+      y: y - 3,
+      width: CELL_SIZE + 6,
+      height: CELL_SIZE + 6,
       groups: tank.isPlayer ? [COLLISION_GROUP_PLAYER_BULLET] : [COLLISION_GROUP_ENEMY_BULLET] });
 
     this.direction = direction;
@@ -108,6 +108,9 @@ class Bullet extends BaseObject {
     }
     if (objs.length) {
       for (const obj of objs) {
+        if (obj.ref && obj.ref.isBase && !this.map.isWin) {
+          this.map.defeat();
+        }
         if (obj.ref && obj.ref.block === MAP_OBJECT_BRICK) {
           this.map.clear(obj.ref.cell, obj.ref.row);
         }
@@ -116,10 +119,24 @@ class Bullet extends BaseObject {
         }
         if (obj.ref.constructor.name === 'Tank') {
           obj.ref.hit();
+          this.isActive = false;
+          this.map.removeObject(this);
+          break; // тільки 1 танк за раз
+        }
+        if (obj.ref.constructor.name !== 'Bullet') {
+          this.explode();
+        } else {
+          this.isActive = false;
+          obj.ref.isActive = false;
+          this.map.removeObject(this);
+          this.map.removeObject(obj.ref);
+          break;
         }
       }
       this.map.redrawMap();
-      this.explode();
+      if (!this.map.isWin && this.tank.isPlayer) {
+        this.map.checkWinState();
+      }
       return;
     }
     this.x += deltaX;
@@ -128,7 +145,7 @@ class Bullet extends BaseObject {
 
   async explode() {
     if (this.tank.isPlayer) {
-      this.sounds.play('hit', ['shoot', 'move', 'idle']);
+      this.sounds.play('wall', ['wall']);
     }
     return new Promise((resolve) => {
       this.isExplosion = true;

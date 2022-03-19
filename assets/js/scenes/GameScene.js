@@ -10,9 +10,12 @@ import {
   DIRECTION_LEFT,
   CELL_SIZE,
   MAP_SIZE,
-  BG_COLOR, PAUSE_SPRITE, CONTROLS_SPRITE
+  BG_COLOR, PAUSE_SPRITE, CONTROLS_SPRITE, GAME_OVER_SPRITE, DELAY_BEFORE_NEXT_LEVEL
 } from '../constants.js';
 import AIPlayer from '../AIPlayer.js';
+import JoyStick from '../helpers/joystick.js';
+
+const JOYSTICK_MEDIA_QUERY = 'screen and (max-device-width: 768px)';
 
 export default
 class GameScene extends Scene {
@@ -22,7 +25,7 @@ class GameScene extends Scene {
 
   isPause = false;
 
-  constructor({ DrawingContext, ResourceManager, GameMap, GameSidebar, Sounds, SceneManager, GameState }) {
+  constructor({ DrawingContext, ResourceManager, GameMap, GameSidebar, Sounds, SceneManager, GameState, di }) {
     super();
 
     this.drawingContext = DrawingContext;
@@ -32,11 +35,13 @@ class GameScene extends Scene {
     this.sounds = Sounds;
     this.sceneManager = SceneManager;
     this.gameState = GameState;
+    this.di = di;
   }
 
   drawStage() {
     let n = Date.now();
     const time = 500;
+    this.sounds.stop();
     this.sounds.play('start');
     return () => {
       let change = Date.now() - n;
@@ -44,19 +49,85 @@ class GameScene extends Scene {
         change = time;
         setTimeout(() => {
           this.isStarted = true;
-        }, 1000);
+        }, 1500);
       }
       const height = (this.drawingContext.height / 2) * (change / time);
       this.drawingContext.clear('#000');
       this.drawingContext.drawRect(0, 0, this.drawingContext.width, height, '#0089fb');
       this.drawingContext.drawRect(0, this.drawingContext.height - height, this.drawingContext.width, this.drawingContext.height, '#ffda00');
       this.drawingContext.drawText(this.gameState.stage.title, this.drawingContext.width / 2, this.drawingContext.height / 2 - 20);
-      this.drawingContext.drawText(this.gameState.stage.subtitle, this.drawingContext.width / 2, this.drawingContext.height / 2 + 40);
+      this.drawingContext.drawText(this.gameState.stage.subtitle, this.drawingContext.width / 2, this.drawingContext.height / 2 + 40, { size: 18 });
     };
   }
 
   async loading() {
+    this.isStarted = false;
     this.gameState.loadStage();
+
+    this.map.putBase();
+    this.map.putEnemiesPlaces();
+    this.map.setMap(this.gameState.stage.map);
+
+    const input = {};
+    let isShowJoystick = false;
+    if (typeof window.matchMedia !== 'undefined') {
+      const { matches } = window.matchMedia(JOYSTICK_MEDIA_QUERY);
+      isShowJoystick = matches;
+    }
+    if (!this.joystick && isShowJoystick) {
+      this.joystick = new JoyStick('jContainer1', {
+        internalFillColor: '#0089fb',
+        internalStrokeColor: '#004a86',
+        externalStrokeColor: '#004a86'
+      }, (stickData) => {
+        if (stickData.cardinalDirection.length > 1) {
+          return;
+        }
+        input.ArrowUp = false;
+        input.ArrowLeft = false;
+        input.ArrowDown = false;
+        input.ArrowRight = false;
+        const data = stickData.cardinalDirection.split('');
+        for (const letter of data) {
+          switch (letter) {
+            case 'N':
+              input.ArrowUp = true;
+              break;
+            case 'S':
+              input.ArrowDown = true;
+              break;
+            case 'W':
+              input.ArrowLeft = true;
+              break;
+            case 'E':
+              input.ArrowRight = true;
+              break;
+          }
+        }
+
+        this.changeState(input)
+      });
+      this.joystick2 = new JoyStick('jContainer2', {
+        button: true,
+        internalFillColor: '#ffda00',
+        internalStrokeColor: '#ab9516',
+        externalStrokeColor: '#ab9516'
+      }, (stickData) => {
+        input.Space = stickData.pressed;
+        this.changeState(input);
+      });
+    }
+
+    this.map.onWin = () => {
+      setTimeout(() => {
+        this.gameState.currentStage++;
+        if (this.gameState.currentStage > this.gameState.maxStageIndex) {
+          this.sceneManager.loadScene(this.di.get('VictoryScene'));
+        } else {
+          this.sceneManager.loadScene(this.di.get('ScoresScene'));
+        }
+      }, DELAY_BEFORE_NEXT_LEVEL)
+    };
 
     await this.resourceManager.loadResources([
       FILENAME_SPRITES
@@ -77,9 +148,6 @@ class GameScene extends Scene {
     this.playerTank.born();
     this.map.isConstructor = false;
     // this.map.isDebug = true;
-
-    this.map.putBase();
-    this.map.putEnemiesPlaces();
     this.inputState = {
       isUp: false,
       isDown: false,
@@ -88,7 +156,15 @@ class GameScene extends Scene {
       isShoot: false
     };
 
+    if (this.timer) {
+      clearInterval(this.timer);
+    }
     this.timer = setInterval(() => {
+      if (this.map.isDefeat) {
+        clearInterval(this.timer);
+        this.timer = null;
+        return;
+      }
       if (!this.gameState.tanks.length || this.isPause) {
         return;
       }
@@ -109,19 +185,26 @@ class GameScene extends Scene {
 
     this.drawingContext.clear(BG_COLOR);
 
-    const windowWidth = this.drawingContext.width - (PADDING_SIZE_X * 2) - SIDEBAR_WIDTH;
+    let windowWidth = this.drawingContext.width;
     const windowHeight = this.drawingContext.height - (PADDING_SIZE_Y * 2);
+    if (windowWidth < 400) {
+      windowWidth = windowWidth + (PADDING_SIZE_X * 2);
+    }
     const minSide = Math.min(windowWidth, windowHeight);
 
     // draw sidebar
-    const offsetX = (this.drawingContext.width - minSide - SIDEBAR_WIDTH) / 2;
+    const offsetX = (this.drawingContext.width - minSide) / 2;
     const offsetY = (this.drawingContext.height - minSide) / 2;
 
-    const img = this.map.draw();
+    const img = this.map.draw(this.isPause);
     this.drawingContext.drawImage(img, offsetX, offsetY, minSide, minSide);
 
     if (this.isPause) {
       const [x, y, w, h] = PAUSE_SPRITE;
+      this.drawingContext.drawSprite(this.resourceManager.get(FILENAME_SPRITES), x, y, w, h, offsetX + (minSide - w) / 2, offsetY + (minSide - h) / 2, w, h)
+    }
+    if (this.map.isDefeat) {
+      const [x, y, w, h] = GAME_OVER_SPRITE;
       this.drawingContext.drawSprite(this.resourceManager.get(FILENAME_SPRITES), x, y, w, h, offsetX + (minSide - w) / 2, offsetY + (minSide - h) / 2, w, h)
     }
 
@@ -142,17 +225,21 @@ class GameScene extends Scene {
   }) {
     if (KeyP) {
       this.isPause = !this.isPause;
+      this.sounds.stop();
     }
     this.inputState.isShoot = Space;
     this.inputState.isUp = KeyW || ArrowUp;
     this.inputState.isDown = KeyS || ArrowDown;
     this.inputState.isLeft = KeyA || ArrowLeft;
     this.inputState.isRight = KeyD || ArrowRight;
-
   }
 
   tick() {
-    if (this.isPause) {
+    if (this.isStarted) {
+      this.map.checkWinState();
+    }
+
+    if (this.isPause || this.map.isDefeat) {
       return;
     }
     for (const object of this.map.gameObjects) {
@@ -208,5 +295,11 @@ class GameScene extends Scene {
     this.map.addObject(tank);
     this.map.world.addObject(tank.physicEntity);
     return tank;
+  }
+
+  click() {
+    if (this.map.isDefeat) {
+      this.sceneManager.loadScene(this.di.get('MenuScene'));
+    }
   }
 }

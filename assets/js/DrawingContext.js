@@ -44,7 +44,9 @@ class DrawingContext extends EventEmitter {
     this.ctx.fillStyle = '#fff';
     this.ctx.font      = 'normal 16pt Arial';
     this.ctx.fillText(`FPS: ${this.fps}`, 10, 26);
-    this.ctx.fillText(`Memory: ${Math.round(performance.memory.totalJSHeapSize / 1024 / 1024 * 100) / 100}Mb`, 10, 50);
+    if (typeof performance !== 'undefined' && typeof performance.memory !== 'undefined') {
+      this.ctx.fillText(`Memory: ${Math.round(performance.memory.totalJSHeapSize / 1024 / 1024 * 100) / 100}Mb`, 10, 50);
+    }
   }
 
   startLoop() {
@@ -52,9 +54,9 @@ class DrawingContext extends EventEmitter {
     function drawCallback() {
       self.timeMeasurements.push(performance.now());
 
-      self.clear();
+      // self.clear();
       self.emit('draw');
-      // self.drawFps();
+      self.drawFps();
       requestAnimationFrame(drawCallback);
     }
     drawCallback();
@@ -81,18 +83,25 @@ class DrawingContext extends EventEmitter {
   }
 
   drawImage(image, x, y, width, height) {
-    this.ctx.drawImage(image, x, y, width, height);
+    try {
+      this.ctx.drawImage(image, x, y, width, height);
+    } catch (err) {
+    }
   }
 
   drawSprite(image, x, y, width, height, destX, destY, destWidth, destHeight) {
-    this.ctx.drawImage(image, x, y, width, height, destX, destY, destWidth, destHeight);
+    try {
+      this.ctx.drawImage(image, x, y, width, height, destX, destY, destWidth, destHeight);
+    } catch (err) {
+      // console.info(err, x, y, width, height, destX, destY, destWidth, destHeight)
+    }
   }
 
-  drawText(text, x, y) {
+  drawText(text, x, y, { align, color, size } = {}) {
     this.ctx.save();
-    this.ctx.fillStyle = '#000';
-    this.ctx.font = '20px "Press Start 2P"';
-    this.ctx.textAlign = 'center';
+    this.ctx.fillStyle = color || '#000';
+    this.ctx.font = `${size || 20}px "Press Start 2P"`;
+    this.ctx.textAlign = align || 'center';
     this.ctx.fillText(text, x, y);
     this.ctx.restore();
   }

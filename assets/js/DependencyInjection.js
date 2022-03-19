@@ -44,6 +44,7 @@ class DependencyInjection {
       return this.#instances[className];
     } catch (err) {
       // error in eval
+      console.error(err);
     }
   }
 

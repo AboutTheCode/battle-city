@@ -19,7 +19,7 @@ import {
   COLLISION_GROUP_TANK,
   COLLISION_GROUPS_PLAYER_TANK,
   COLLISION_GROUP_PLAYER_TANK,
-  COLLISION_GROUP_ENEMY_TANK
+  COLLISION_GROUP_ENEMY_TANK, TANK_MEDIUM, TANK_HEAVY, DEFAULT_SPEED, SWIFT_SPEED
 } from '../constants.js';
 import Bullet from './Bullet.js';
 import BaseObject from './BaseObject.js';
@@ -53,9 +53,16 @@ class Tank extends BaseObject {
     this.map = map;
     this.gameState = GameState;
 
-    this.speed = 4;
-    if (type === TANK_SWIFT ) {
-      this.speed = 8
+    this.hits = 1;
+    this.speed = DEFAULT_SPEED;
+    if (type === TANK_SWIFT) {
+      this.speed = SWIFT_SPEED;
+    }
+    if (type === TANK_MEDIUM) {
+      this.hits = 2;
+    }
+    if (type === TANK_HEAVY) {
+      this.hits = 3;
     }
 
     this.shootCooldown = 0;
@@ -73,7 +80,7 @@ class Tank extends BaseObject {
     return this.type === TANK_PLAYER;
   }
 
-  draw(context) {
+  draw(context, isPause = false) {
     const tick = Math.round(this.tickSlide / 2); // slow animation
     if (this.isBorn) {
       this.drawTankSprite(context, BORN_SPRITE[tick % 4]);
@@ -100,7 +107,7 @@ class Tank extends BaseObject {
       this.drawTankSprite(context, IMMORTAL_SPRITE[tick % 2]);
     }
 
-    if (this.isPlayer) {
+    if (this.isPlayer && !this.map.isDefeat && !isPause) {
       if (this.moving) {
         this.sounds.play('move', ['idle']);
       } else {
@@ -254,6 +261,10 @@ class Tank extends BaseObject {
   born(isImmortal = true) {
     this.isBorn = true;
     this.isExplosion = false;
+    if (this.isPlayer) {
+      this.hits = 1;
+      this.speed = DEFAULT_SPEED;
+    }
     setTimeout(() => this.isBorn = false, BORN_TIME);
 
     if (isImmortal) {
@@ -266,31 +277,42 @@ class Tank extends BaseObject {
     if (this.isBorn || this.isImmortal || this.isExplosion) {
       return;
     }
-    await this.explode();
     if (this.isPlayer) {
-      this.gameState.lives -= 1;
-      if (this.gameState.lives <= 0) {
-        // game over
+      this.hits--;
+      if (this.hits === 0) {
+        await this.explode();
+        this.gameState.lives -= 1;
+        if (this.gameState.lives === 0) {
+          // game over
+          this.map.defeat();
+        } else {
+          this.gameState.tankRank = 0;
+          this.map.putPlayer1(this);
+          this.born();
+        }
       } else {
-        this.gameState.tankRank = 0;
-        this.map.putPlayer1(this);
-        this.born();
+        this.gameState.tankRank--;
       }
     } else {
       if (this.isBonus) {
         this.isBonus = false;
         this.map.createBonus();
       }
-      this.gameState.kills[this.type] += 1;
-      this.gameState.killsScore += this.type * 100;
-      this.gameState.killsCount += 1;
+      this.hits--;
+      if (this.hits === 0) {
+        this.gameState.kills[this.type] += 1;
+        this.gameState.killsScore += this.type * 100;
+        this.gameState.killsCount += 1;
+        await this.explode();
+      } else {
+        this.sounds.play('hit');
+      }
     }
   }
 
   async explode() {
-    if (this.isPlayer) {
-      this.sounds.play('explosion', ['shoot', 'move', 'idle']);
-    }
+    this.sounds.play('explosion', ['shoot', 'move', 'idle']);
+
     return new Promise((resolve) => {
       this.isExplosion = true;
       setTimeout(() => {

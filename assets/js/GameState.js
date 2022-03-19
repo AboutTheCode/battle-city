@@ -17,23 +17,20 @@ class GameState {
 
   tankRank = 0;
 
-  constructor({ GameMap }) {
-    this.map = GameMap;
-  }
+  maxStageIndex = STAGES.length - 1;
 
   newGame() {
-    this.currentStage = 0;
     this.lives = PLAYER_LIVES;
+    this.currentStage = 0;
+    this.tankRank = 0;
+    this.killsScore = 0;
   }
 
   loadStage() {
     this.stage = STAGES[this.currentStage];
-    this.tanks = this.stage.tanks;
+    this.tanks = [...this.stage.tanks];
     this.enemyTankBornTimeout = this.stage.enemyTankBornTimeout;
-    this.map.setMap(this.stage.map);
-    this.killsScore = 0;
     this.killsCount = 0;
-    this.tankRank = 0;
     this.kills = {
       [TANK_NORMAL]: 0,
       [TANK_SWIFT]: 0,

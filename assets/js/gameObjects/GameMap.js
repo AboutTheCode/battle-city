@@ -16,11 +16,20 @@ import {
   COLLISION_GROUP_BONUS,
   BONUS_IMMORTAL,
   BONUS_FREEZE,
-  BONUS_BASE_STEEL, BONUS_RANK, BONUS_BAYRAKTAR, BONUS_LIFE
+  BONUS_BASE_STEEL,
+  BONUS_RANK,
+  BONUS_BAYRAKTAR,
+  BONUS_LIFE,
+  BONUS_TIME_IMMORTAL,
+  BONUS_TIME_BASE_STEEL,
+  BONUS_TIME_FREEZE,
+  COLLISION_GROUP_BASE,
+  MAP_OBJECT_BASE_DESTROID
 } from '../constants.js';
 import DrawingContext from '../DrawingContext.js';
 import PhysicsWorld from '../physics/PhysicsWorld.js';
 import PhysicsEntity from '../physics/PhysicsEntity.js';
+import { createOffscreenCanvas } from '../helpers/offscreenCanvas.js';
 
 const MAP_BG_COLOR = '#000';
 
@@ -36,11 +45,12 @@ class GameMap {
 
   blinkSlide = 0;
 
-  constructor({ ResourceManager, Sounds }) {
+  constructor({ ResourceManager, Sounds, GameState }) {
     this.sounds = Sounds;
+    this.gameState = GameState;
     this.resourceManager = ResourceManager;
     const size = MAP_SIZE * CELL_SIZE;
-    this.canvas = new OffscreenCanvas(size, size);
+    this.canvas = createOffscreenCanvas(size, size);
     this.context = new DrawingContext({ canvas: this.canvas });
     this.highlightX = null;
     this.highlightY = null;
@@ -52,8 +62,16 @@ class GameMap {
   }
 
   setMap(map) {
+    this.gameObjects = [];
+    this.bonuses = [];
     this.world.clear();
     this.map = map;
+    this.isDefeat = false;
+    this.isWin = false;
+    if (this.winTimer) {
+      clearTimeout(this.winTimer);
+      this.winTimer = null;
+    }
 
     for (let x = 0; x < MAP_SIZE; x++) {
       for (let y = 0; y < MAP_SIZE; y++) {
@@ -69,6 +87,14 @@ class GameMap {
         );
       }
     }
+
+    const { row, cell, width, height } = this.basePlace;
+    this.world.addObject(
+      new PhysicsEntity({
+        x: cell * CELL_SIZE + 1, y: row * CELL_SIZE + 1, width: width * CELL_SIZE - 2, height: height * CELL_SIZE - 2,
+        ref: { row, cell, isBase: true }, groups: [COLLISION_GROUP_BASE]
+      })
+    );
   }
 
   get(x, y) {
@@ -88,10 +114,19 @@ class GameMap {
     }
     this.map[MAP_SIZE * y + x] = MAP_OBJECT_EMPTY;
     for (const obj of this.world.objects) {
-      if (obj.ref && obj.ref.row === y && obj.ref.cell === x) {
+      if (obj.ref && obj.ref.row === y && obj.ref.cell === x && !obj.ref.isPowerUp) {
         this.world.removeObject(obj);
       }
     }
+  }
+
+  get basePlace() {
+    return {
+      cell: MAP_SIZE / 2 - 1,
+      row: MAP_SIZE - 2,
+      width: 2,
+      height: 2,
+    };
   }
 
   putBase(material = MAP_OBJECT_BRICK) {
@@ -120,6 +155,7 @@ class GameMap {
   }
 
   putEnemiesPlaces() {
+    this.nextEnemyPlace = 1;
     // left
     this.set(0, 0, MAP_OBJECT_EMPTY);
     this.set(0, 1, MAP_OBJECT_EMPTY);
@@ -171,10 +207,10 @@ class GameMap {
       }
 
       // draw base
-      const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[MAP_OBJECT_BASE];
+      const [spriteX, spriteY, spriteWidth, spriteHeight] = MAP_OBJECT_SPRITES[this.isDefeat ? MAP_OBJECT_BASE_DESTROID : MAP_OBJECT_BASE];
       this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), spriteX, spriteY, spriteWidth, spriteHeight, MAP_SIZE * CELL_SIZE / 2 - CELL_SIZE, (MAP_SIZE - 2) * CELL_SIZE, CELL_SIZE * 2, CELL_SIZE * 2);
     }
-    this.currentMapImage = this.canvas.transferToImageBitmap();
+    this.currentMapImage = this.canvas.getImage();
   }
 
   drawJungle() {
@@ -190,13 +226,13 @@ class GameMap {
     }
   }
 
-  draw() {
+  draw(isPause = false) {
     const size = MAP_SIZE * CELL_SIZE;
     // important set size after getContext
     this.canvas.width = size;
     this.canvas.height = size;
 
-    if (!this.currentMapImage || this.isDebug) {
+    if (!this.currentMapImage || this.isDebug || !this.canvas.isOffscreen) {
       this.redrawMap();
     }
     this.context.drawImage(this.currentMapImage, 0, 0, size, size);
@@ -227,7 +263,7 @@ class GameMap {
       this.drawLines()
     } else {
       for (const object of this.gameObjects) {
-        object.draw(this.context);
+        object.draw(this.context, isPause);
       }
     }
 
@@ -241,7 +277,7 @@ class GameMap {
         this.context.drawSprite(this.resourceManager.get(FILENAME_SPRITES), x, y, w, h, cell * CELL_SIZE, row * CELL_SIZE, w, h);
       }
     }
-    return this.canvas.transferToImageBitmap();
+    return this.canvas.getImage();
   }
 
   drawLines() {
@@ -302,7 +338,7 @@ class GameMap {
     this.gameObjects = this.gameObjects.filter((obj) => obj !== item);
   }
 
-  createBonus() {
+  createBonus(bonusType = null) {
     const bonusIndex = Math.round(Math.random() * (BONUSES.length - 1));
     const row = Math.round(Math.random() * (MAP_SIZE - 4)) + 2;
     const cell = Math.round(Math.random() * (MAP_SIZE - 4)) + 2;
@@ -315,7 +351,7 @@ class GameMap {
       isPowerUp: true,
       row,
       cell,
-      type: BONUSES[bonusIndex]
+      type: bonusType || BONUSES[bonusIndex]
     };
     bonus.physic = new PhysicsEntity({
       x: cell * CELL_SIZE,
@@ -329,29 +365,40 @@ class GameMap {
     this.world.addObject(bonus.physic);
   }
 
+  get enemyTanks() {
+    return this.gameObjects.filter((obj) => !obj.isPlayer);
+  }
+
   catchBonus(bonus, tank) {
     this.bonuses = this.bonuses.filter((b) => b !== bonus);
     this.world.removeObject(bonus.physic);
 
-    console.info(bonus);
-    console.trace();
     switch (bonus.type) {
       case BONUS_IMMORTAL:
+        this.sounds.play('pick');
         tank.isImmortal = true;
-        setTimeout(() => tank.isImmortal = false, 5000);
+        setTimeout(() => tank.isImmortal = false, BONUS_TIME_IMMORTAL);
         break;
       case BONUS_FREEZE:
-        this.gameObjects.forEach((obj) => !obj.isPlayer && (obj.isFreeze = true));
-        setTimeout(() => this.gameObjects.forEach((obj) => !obj.isPlayer && (obj.isFreeze = false)), 5000);
+        this.sounds.play('pick');
+        this.enemyTanks.forEach((obj) => {
+          obj.isFreeze = true;
+          obj.moving = false;
+        });
+        setTimeout(() => this.enemyTanks.forEach((obj) => obj.isFreeze = false), BONUS_TIME_FREEZE);
         break;
       case BONUS_BASE_STEEL:
+        this.sounds.play('pick');
         this.putBase(MAP_OBJECT_STEEL);
-        setTimeout(() => this.putBase(MAP_OBJECT_BRICK), 10000);
+        setTimeout(() => this.putBase(MAP_OBJECT_BRICK), BONUS_TIME_BASE_STEEL);
         break;
       case BONUS_RANK:
         this.sounds.play('levelUp');
         if (tank.gameState.tankRank < 3) {
           tank.gameState.tankRank++;
+        }
+        if (tank.gameState.tankRank === 3) {
+          tank.hits = 2;
         }
         break;
       case BONUS_BAYRAKTAR:
@@ -363,5 +410,24 @@ class GameMap {
         tank.gameState.lives++;
         break;
     }
+  }
+
+  checkWinState() {
+    if (this.isWin) {
+      return;
+    }
+    if (this.enemyTanks.length === 0 && this.gameState.tanks.length === 0) {
+      this.isWin = true;
+      this.onWin();
+      this.map.onWin = null;
+    }
+  }
+
+  defeat() {
+    this.isDefeat = true;
+    this.sounds.play('explosion', ['move', 'idle']);
+    setTimeout(() => {
+      this.sounds.play('gameOver');
+    }, 1000)
   }
 }
