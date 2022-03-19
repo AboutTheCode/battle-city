@@ -428,6 +428,11 @@ class GameMap {
     this.sounds.play('explosion', ['move', 'idle']);
     setTimeout(() => {
       this.sounds.play('gameOver');
-    }, 1000)
+    }, 1000);
+
+    gtag('event', 'impression', {
+      'event_category': 'game',
+      'event_label': 'game_defeat'
+    });
   }
 }

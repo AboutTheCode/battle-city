@@ -28,6 +28,11 @@ class ConstructorScene extends Scene {
     this.map.setMap(Array(MAP_SIZE ** 2).fill(MAP_OBJECT_EMPTY));
     this.map.putBase();
     this.map.isConstructor = true;
+
+    gtag('event', 'impression', {
+      'event_category': 'constructor',
+      'event_label': 'constructor_start'
+    });
   }
 
   move({ x, y }) {

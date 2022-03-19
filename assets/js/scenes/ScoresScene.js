@@ -58,7 +58,7 @@ class ScoresScene extends Scene {
           this.showScores[tankType] = 0;
           break;
         }
-        sum += this.showScores[tankType] * tankType;
+        sum += this.showScores[tankType];
         if (this.showScores[tankType] !== this.gameState.kills[tankType]) {
           this.showScores[tankType]++;
           break;
@@ -86,7 +86,8 @@ class ScoresScene extends Scene {
     this.context.drawText(this.gameState.stage.title, SCREEN_WIDTH / 2, 150, { size: 24, align: 'center', color: '#fff' });
     this.context.drawText(this.gameState.stage.subtitle, SCREEN_WIDTH / 2, 190, { size: 18, align: 'center', color: '#fff' });
 
-    this.context.drawText('ГРАВЕЦЬ 1', SCREEN_WIDTH / 2 - 160, 280, { size: 24, align: 'right', color: '#b53121' });
+    this.context.drawText('ГРАВЕЦЬ 1', SCREEN_WIDTH / 2 - 160, 250, { size: 24, align: 'right', color: '#b53121' });
+    this.context.drawText('СЛАВА ЗСУ!', SCREEN_WIDTH / 2 - 160, 290, { size: 24, align: 'right', color: '#fc9900' });
     // this.context.drawText(this.gameState.killsScore, SCREEN_WIDTH / 2 - 160, 290, { size: 24, align: 'right', color: '#fc9900' });
 
     for (const tankType of SCORE_TANKS) {
@@ -102,7 +103,7 @@ class ScoresScene extends Scene {
     this.context.drawRect(SCREEN_WIDTH / 2 - 200, 700, 400, 5, '#fff');
 
     if (this.showTotal) {
-      this.context.drawText(`${this.total} МОСКАЛІВ ЗНИЩЕНО`, SCREEN_WIDTH / 2 + 335, 760, {
+      this.context.drawText(`${this.total} СВИНОСОБАК ЗНИЩЕНО`, SCREEN_WIDTH / 2 + 335, 760, {
         size: 24,
         align: 'right',
         color: '#fff'

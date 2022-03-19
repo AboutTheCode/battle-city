@@ -56,7 +56,7 @@ class DrawingContext extends EventEmitter {
 
       // self.clear();
       self.emit('draw');
-      self.drawFps();
+      // self.drawFps();
       requestAnimationFrame(drawCallback);
     }
     drawCallback();

@@ -24,6 +24,10 @@ class GameState {
     this.currentStage = 0;
     this.tankRank = 0;
     this.killsScore = 0;
+    gtag('event', 'impression', {
+      'event_category': 'game',
+      'event_label': 'game_new'
+    });
   }
 
   loadStage() {
@@ -37,5 +41,10 @@ class GameState {
       [TANK_MEDIUM]: 0,
       [TANK_HEAVY]: 0
     };
+    gtag('event', 'impression', {
+      'event_category': 'game',
+      'event_label': 'level_start',
+      'value': `${this.currentStage}`
+    });
   }
 }

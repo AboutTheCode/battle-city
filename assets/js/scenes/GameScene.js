@@ -60,6 +60,14 @@ class GameScene extends Scene {
     };
   }
 
+  get isMobile() {
+    if (typeof window.matchMedia !== 'undefined') {
+      const { matches } = window.matchMedia(JOYSTICK_MEDIA_QUERY);
+      return matches;
+    }
+    return false;
+  }
+
   async loading() {
     this.isStarted = false;
     this.gameState.loadStage();
@@ -69,12 +77,7 @@ class GameScene extends Scene {
     this.map.setMap(this.gameState.stage.map);
 
     const input = {};
-    let isShowJoystick = false;
-    if (typeof window.matchMedia !== 'undefined') {
-      const { matches } = window.matchMedia(JOYSTICK_MEDIA_QUERY);
-      isShowJoystick = matches;
-    }
-    if (!this.joystick && isShowJoystick) {
+    if (!this.joystick && this.isMobile) {
       this.joystick = new JoyStick('jContainer1', {
         internalFillColor: '#0089fb',
         internalStrokeColor: '#004a86',
@@ -119,10 +122,20 @@ class GameScene extends Scene {
     }
 
     this.map.onWin = () => {
+      gtag('event', 'impression', {
+        'event_category': 'game',
+        'event_label': 'level_won',
+        'value': `${this.gameState.currentStage}`
+      });
       setTimeout(() => {
         this.gameState.currentStage++;
         if (this.gameState.currentStage > this.gameState.maxStageIndex) {
           this.sceneManager.loadScene(this.di.get('VictoryScene'));
+
+          gtag('event', 'impression', {
+            'event_category': 'game',
+            'event_label': 'game_victory'
+          });
         } else {
           this.sceneManager.loadScene(this.di.get('ScoresScene'));
         }
@@ -185,10 +198,13 @@ class GameScene extends Scene {
 
     this.drawingContext.clear(BG_COLOR);
 
-    let windowWidth = this.drawingContext.width;
-    const windowHeight = this.drawingContext.height - (PADDING_SIZE_Y * 2);
+    let windowWidth = this.drawingContext.width - SIDEBAR_WIDTH;
+    let windowHeight = this.drawingContext.height - (PADDING_SIZE_Y * 2);
     if (windowWidth < 400) {
       windowWidth = windowWidth + (PADDING_SIZE_X * 2);
+    }
+    if (this.isMobile) {
+      windowHeight -= PADDING_SIZE_Y;
     }
     const minSide = Math.min(windowWidth, windowHeight);
 
@@ -211,8 +227,10 @@ class GameScene extends Scene {
     const sidebar = this.sidebar.draw();
     this.drawingContext.drawImage(sidebar, offsetX + minSide, offsetY, sidebar.width * (minSide / sidebar.height), minSide);
 
-    const [x, y, w, h] = CONTROLS_SPRITE;
-    this.drawingContext.drawSprite(this.resourceManager.get(FILENAME_SPRITES), x, y, w, h, offsetX, 0, w / 2, h / 2)
+    if (!this.isMobile) {
+      const [x, y, w, h] = CONTROLS_SPRITE;
+      this.drawingContext.drawSprite(this.resourceManager.get(FILENAME_SPRITES), x, y, w, h, offsetX, 0, w / 2, h / 2);
+    }
   }
 
   changeState({
@@ -294,6 +312,12 @@ class GameScene extends Scene {
     tank.born(false);
     this.map.addObject(tank);
     this.map.world.addObject(tank.physicEntity);
+
+    gtag('event', 'impression', {
+      'event_category': 'game',
+      'event_label': 'level_tank',
+      'value': `${this.gameState.tanks.length}`
+    });
     return tank;
   }
 

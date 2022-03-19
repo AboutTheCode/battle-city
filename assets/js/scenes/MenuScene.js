@@ -108,9 +108,20 @@ class MenuScene extends Scene {
         text: this.translation.get('donate'),
         click: () => {
           window.open('https://www.comebackalive.in.ua/donate');
+
+          gtag('event', 'click', {
+            'event_category': 'adv',
+            'event_label': 'open_menu',
+            'value': 'https://www.comebackalive.in.ua/donate'
+          });
         }
       })
     ];
+
+    gtag('event', 'impression', {
+      'event_category': 'menu',
+      'event_label': 'menu_start'
+    });
   }
 
   click({ x, y }) {
